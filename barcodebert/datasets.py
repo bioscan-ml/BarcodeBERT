@@ -20,7 +20,7 @@ class KmerTokenizer(object):
         self.max_len = max_len
         self.vocabulary_mapper = vocabulary_mapper
 
-    def __call__(self, dna_sequence, offset=0) -> (list, list):
+    def __call__(self, dna_sequence, offset=0) -> tuple[list, list]:
         tokens = []
         att_mask = [1] * (self.max_len // self.stride)
         x = dna_sequence[offset:]
@@ -28,9 +28,8 @@ class KmerTokenizer(object):
             if len(x) > self.max_len:
                 x = x[: self.max_len]
             else:
-                x = x + "N" * (self.max_len - len(x))
                 att_mask[len(x) // self.stride :] = [0] * (len(att_mask) - len(x) // self.stride)
-
+                x = x + "N" * (self.max_len - len(x))
         for i in range(0, len(x) - self.k + 1, self.stride):
             k_mer = x[i : i + self.k]
             tokens.append(k_mer)
@@ -47,7 +46,7 @@ class DnaBertBPETokenizer(object):
         self.max_tokenized_len = max_tokenized_len
         self.bpe = AutoTokenizer.from_pretrained("zhihan1996/DNABERT-2-117M", trust_remote_code=True)
 
-    def __call__(self, dna_sequence, offset=0) -> (list, list):
+    def __call__(self, dna_sequence, offset=0) -> tuple[list, list]:
         x = dna_sequence[offset:]
         tokens = self.bpe(x, padding=True, return_tensors="pt")["input_ids"]
         tokens[tokens == 0] = 1
@@ -116,7 +115,7 @@ class DNADataset(Dataset):
         else:
             offset = 0
         processed_barcode, att_mask = self.tokenizer(self.barcodes[idx], offset=offset)
-        label = torch.tensor((self.label_pipeline(self.labels[idx])), dtype=torch.int64)
+        label = torch.tensor(self.labels[idx], dtype=torch.int64)
         return processed_barcode, label, att_mask
 
 
@@ -127,7 +126,13 @@ def single_inference(model, tokenizer, barcode):
         x = x.unsqueeze(0).to(model.device)
         att_mask = att_mask.unsqueeze(0).to(model.device)
         x = model(x, att_mask).hidden_states[-1]
-        x = x.mean(1)
+        # updated mean pooling to account for the attention mask and padding tokens
+        # sum the embeddings of the tokens (excluding padding tokens)
+        x = (x * att_mask.unsqueeze(-1)).sum(1)  # (batch_size, hidden_size)
+        # sum the attention mask (number of tokens in the sequence without considering the padding tokens)
+        sum_mask = att_mask.sum(1, keepdim=True)
+        # calculate the mean embeddings
+        x /= sum_mask  # (batch_size, hidden_size)
     return x
 
 
@@ -214,8 +219,8 @@ def inference_from_fasta(fname, model, tokenizer):
                 # Compute embedding
                 x = single_inference(model, tokenizer, seq.decode())
 
-                lines = []
                 seq_id = line[1:-1].decode()  # Modify this according to your labels.
+                lines = []
                 dna_embeddings[seq_id] = x.cpu().numpy()
             seq_id = line[1:-1].decode()
         else:
