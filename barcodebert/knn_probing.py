@@ -11,7 +11,7 @@ import torch
 import torch.optim
 from sklearn.neighbors import KNeighborsClassifier
 from torch import nn
-from torchtext.vocab import build_vocab_from_iterator
+from torchtext.vocab import vocab as build_vocab_from_dict
 
 from barcodebert import utils
 from barcodebert.datasets import KmerTokenizer, representations_from_df
@@ -64,6 +64,7 @@ def run(config):
         "max_len",
         "tokenizer",
         "use_unk_token",
+        "tokenize_n_nucleotide",
         "n_layers",
         "n_heads",
         "dataset_name",
@@ -89,15 +90,31 @@ def run(config):
 
     # DATASET =================================================================
 
-    if not config.use_unk_token:
-        kmer_iter = (["".join(kmer)] for kmer in product("ACGTN", repeat=config.k_mer))
-        vocab = build_vocab_from_iterator(kmer_iter, specials=["<MASK>"])
-        vocab.set_default_index(vocab["N" * config.k_mer])  # <UNK> and <CLS> do not exist anymore
-    else:
-        kmer_iter = (["".join(kmer)] for kmer in product("ACGT", repeat=config.k_mer))
-        vocab = build_vocab_from_iterator(kmer_iter, specials=["<MASK>", "<UNK>"])
-        vocab.set_default_index(vocab["<UNK>"])  # <UNK> is necessary in the hard case
+    base_pairs = "ACGT"
+    # specials = ["[MASK]", "[CLS]", "[SEP]", "[PAD]", "[UNK]"]
+    specials = ["[MASK]", "[UNK]"]
+    UNK_TOKEN = "[UNK]"
 
+    if config.tokenize_n_nucleotide:
+        # Encode kmers which contain N differently depending on where it is
+        base_pairs += "N"
+
+    kmers = ["".join(kmer) for kmer in product(base_pairs, repeat=config.k_mer)]
+
+    if config.tokenize_n_nucleotide:
+        prediction_kmers = []
+        other_kmers = []
+        for kmer in kmers:
+            if "N" in kmer:
+                other_kmers.append(kmer)
+            else:
+                prediction_kmers.append(kmer)
+
+        kmers = prediction_kmers + other_kmers
+
+    kmer_dict = dict.fromkeys(kmers, 1)
+    vocab = build_vocab_from_dict(kmer_dict, specials=specials)
+    vocab.set_default_index(vocab[UNK_TOKEN])
     tokenizer = KmerTokenizer(config.k_mer, vocab, stride=config.k_mer, padding=True, max_len=config.max_len)
 
     if config.data_dir is None:

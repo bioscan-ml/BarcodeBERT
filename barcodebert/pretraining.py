@@ -141,6 +141,7 @@ def run(config):
         "stride": config.stride,
         "max_len": config.max_len,
         "tokenizer": config.tokenizer,
+        "tokenize_n_nucleotide": config.tokenize_n_nucleotide,
         "dataset_format": config.dataset_name,
     }
 
@@ -426,6 +427,7 @@ def run(config):
             total_step=total_step,
             n_samples_seen=n_samples_seen,
             distance_table=distance_table,
+            n_special_tokens=len(dataset_train.special_tokens)
         )
         t_end_train = time.time()
 
@@ -461,6 +463,7 @@ def run(config):
             mask_ratio=mask_ratios[epoch - 1],
             device=device,
             distance_table=distance_table,
+            n_special_tokens=len(dataset_val.special_tokens),
         )
         t_end_val = time.time()
         timing_stats["val"] = t_end_val - t_start_val
@@ -562,6 +565,7 @@ def train_one_epoch(
     total_step=0,
     n_samples_seen=0,
     distance_table=None,
+    n_special_tokens=2,
 ):
     r"""
     Train the encoder and classifier for one epoch.
@@ -592,7 +596,10 @@ def train_one_epoch(
         The total number of steps taken so far.
     n_samples_seen : int, default=0
         The total number of samples seen so far.
-
+    distance_table : torch.Tensor, optional
+        A pre-computed table of edit distances (irrelevant).
+    n_special_tokens: int, default=2
+        Number of special (non-kmer) tokens used by the tokenizer.
 
     Returns
     -------
@@ -631,10 +638,24 @@ def train_one_epoch(
 
         # Build the masking on the fly ----------------------------------------
         # t_start_masking = time.time()
+
+        # Create a mask for allowed tokens i.e. that excludes all special tokens [<MASK>, <UNK>]
+        special_tokens_mask = (sequences > (n_special_tokens - 1))
+
+        if config.tokenize_n_nucleotide:
+            # Either exlude the last token [N..N] if config.predict_n_nucleotide == True
+            # Or exclude all tokens containing Ns i.e "bad kamers" whose index in the vocab
+            # is greater than 4**k
+            special_tokens_mask &= sequences < (n_special_tokens + 4**config.k_mer - 1)
+
+
+        special_tokens_mask = special_tokens_mask.to(device)
+        masked_input = sequences.clone()
+        random_mask = torch.rand(sequences.shape, device=device)
         masked_input = sequences.clone()
         random_mask = torch.rand(masked_input.shape, device=device)  # I can only do this for non-overlapping
         input_maskout = random_mask < mask_ratio
-        input_maskout &= masked_input != 1  # Cannot mask the [<UNK>] token in the hard case
+        input_maskout &= special_tokens_mask  # Cannot mask the special tokens including [UNK]
         masked_input[input_maskout] = 0
 
         # Forward pass --------------------------------------------------------
@@ -643,15 +664,13 @@ def train_one_epoch(
         ct_forward = torch.cuda.Event(enable_timing=True)
         ct_forward.record()
         # Perform the forward pass through the model
-        out = model(masked_input)  # , attention_mask=att_mask)
-        if config.use_unk_token:
-            # Need to remove the <UNK> and <CLS> tokens from the index in sequences
-            targets = sequences - 2 * (sequences > 1)
-        else:
-            # Need to remove the <MASK> token from the index in sequences
-            targets = sequences - (sequences > 1).to(sequences.dtype)
+        out = model(masked_input , attention_mask=att_mask)
+        targets = sequences - n_special_tokens * (sequences > (n_special_tokens - 1))
         # Measure loss
-        loss = criterion(out.logits.view(-1, 4**config.k_mer), targets.view(-1))
+        loss = criterion(
+                    out.logits.view(-1, 4**config.k_mer)[special_tokens_mask.view(-1)],
+                    targets.view(-1)[special_tokens_mask.view(-1)],
+                )
 
         # Backward pass -------------------------------------------------------
         # Reset gradients
@@ -716,11 +735,15 @@ def train_one_epoch(
         with torch.no_grad():
             is_correct = x_pred == targets
             # Overall accuracy, including tokens which weren't masked out
-            acc_all = is_correct.sum() / is_correct.numel()
+            acc_all = is_correct[special_tokens_mask].sum() / is_correct[special_tokens_mask].numel()
             # Accuracy only on the masked tokens
-            acc_msk = is_correct[input_maskout].sum() / input_maskout.sum()
+            acc_msk = (
+                is_correct[input_maskout & special_tokens_mask].sum() / (input_maskout & special_tokens_mask).sum()
+            )
             # Accuracy only on the non-masked tokens
-            acc_kpt = is_correct[~input_maskout].sum() / (~input_maskout).sum()
+            acc_kpt = (
+                is_correct[~input_maskout & special_tokens_mask].sum() / (~input_maskout & special_tokens_mask).sum()
+            )
             if config.distributed:
                 # Fetch results from other GPUs
                 dist.reduce(acc_all, 0, op=dist.ReduceOp.AVG)
@@ -1076,11 +1099,13 @@ def get_parser():
         help="Learning rate scheduler. Default: %(default)s",
     )
     parser.add_argument(
-        "--no-unk-token",
-        "--no_unk_token",
-        dest="use_unk_token",
-        action="store_false",
-        help="Encode tokens containing missing DNA values separately, instead of using a single <UNK> token for all.",
+        "--tokenize-n-nucleotide",
+        "--tokenize_n_nucleotide",
+        "--tokenize-n",
+        "--tokenize_n",
+        dest="tokenize_n_nucleotide",
+        action="store_true",
+        help="Include N as a valid character in tokenization. If false, all kmers including Ns will be mappend to [UNK]",
     )
     # Output checkpoint args --------------------------------------------------
     group = parser.add_argument_group("Output checkpoint")

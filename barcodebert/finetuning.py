@@ -162,7 +162,7 @@ def run(config):
         "stride",
         "max_len",
         "tokenizer",
-        "use_unk_token",
+        "tokenize_n_nucleotide",
         "n_layers",
         "n_heads",
         "dataset_name",
@@ -199,6 +199,7 @@ def run(config):
         "stride": config.stride,
         "max_len": config.max_len,
         "tokenizer": config.tokenizer,
+        "tokenize_n_nucleotide": config.tokenize_n_nucleotide,
         "dataset_format": config.dataset_name,
     }
     dataset_train = DNADataset(

@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
-from torchtext.vocab import build_vocab_from_iterator
+from torchtext.vocab import vocab as build_vocab_from_dict
 from transformers import AutoTokenizer
 
 
@@ -73,6 +73,7 @@ class DNADataset(Dataset):
         max_len=256,
         randomize_offset=False,
         tokenizer="kmer",
+        tokenize_n_nucleotide=False,
         dataset_format="CANADA-1.5M",
     ):
         self.k_mer = k_mer
@@ -80,27 +81,37 @@ class DNADataset(Dataset):
         self.max_len = max_len
         self.randomize_offset = randomize_offset
 
-        #Check that the dataframe contains a valid format
+        # Check that the dataframe contains a valid format
         if dataset_format not in ["CANADA-1.5M", "BIOSCAN-5M"]:
             raise NotImplementedError(f"Dataset {dataset_format} not supported.")
 
         # Vocabulary
-        letters = "ACGT"
-        specials = ["<MASK>"]
-        if use_unk_token:
-            # Encode all kmers which contain at least one N as <UNK>
-            UNK_TOKEN = "<UNK>"
-            specials.append(UNK_TOKEN)
-        else:
+        base_pairs = "ACGT"
+        self.special_tokens = ["[MASK]", "[UNK]"]  # ["[MASK]", "[CLS]", "[SEP]", "[PAD]", "[EOS]", "[UNK]"]
+        UNK_TOKEN = "[UNK]"
+
+        if tokenize_n_nucleotide:
             # Encode kmers which contain N differently depending on where it is
-            letters += "N"
+            base_pairs += "N"
 
         if tokenizer == "kmer":
-            kmer_iter = (["".join(kmer)] for kmer in product(letters, repeat=self.k_mer))
-            self.vocab = build_vocab_from_iterator(kmer_iter, specials=specials)
-            if use_unk_token:
-                self.vocab.set_default_index(self.vocab.lookup_indices([UNK_TOKEN])[0])
+            kmers = ["".join(kmer) for kmer in product(base_pairs, repeat=self.k_mer)]
 
+            # Separate between good (idx < 4**k) and bad k-mers (idx > 4**k) for prediction
+            if tokenize_n_nucleotide:
+                prediction_kmers = []
+                other_kmers = []
+                for kmer in kmers:
+                    if "N" in kmer:
+                        other_kmers.append(kmer)
+                    else:
+                        prediction_kmers.append(kmer)
+
+                kmers = prediction_kmers + other_kmers
+
+            kmer_dict = dict.fromkeys(kmers, 1)
+            self.vocab = build_vocab_from_dict(kmer_dict, specials=self.special_tokens)
+            self.vocab.set_default_index(self.vocab[UNK_TOKEN])
             self.vocab_size = len(self.vocab)
             self.tokenizer = KmerTokenizer(
                 self.k_mer, self.vocab, stride=self.stride, padding=True, max_len=self.max_len
@@ -113,7 +124,7 @@ class DNADataset(Dataset):
         df = pd.read_csv(file_path, sep="\t" if file_path.endswith(".tsv") else ",", keep_default_na=False)
         self.barcodes = df["nucleotides"].to_list()
         if dataset_format == "CANADA-1.5M":
-            self.labels, self.label_set = pd.factorize(df['species_name'], sort=True)
+            self.labels, self.label_set = pd.factorize(df["species_name"], sort=True)
             self.num_labels = len(self.label_set)
         else:
             self.label_names = df["species_name"].to_list()
