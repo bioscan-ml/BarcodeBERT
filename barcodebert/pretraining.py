@@ -1001,7 +1001,9 @@ def get_parser():
         help="Name of the dataset to learn. Default: %(default)s",
     )
     group.add_argument(
+        "--data_dir",
         "--data-dir",
+        dest="data_dir",
         type=str,
         default=None,
         help="Directory within which the dataset can be found. Default is the directory <repo>/data.",
@@ -1022,7 +1024,7 @@ def get_parser():
     group.add_argument(
         "--stride",
         type=int,
-        default=4,
+        default=None,
         help="Stride to use for DNA tokenization. Default: %(default)s",
     )
     group.add_argument(
@@ -1235,6 +1237,8 @@ def cli():
     r"""Command-line interface for model training."""
     parser = get_parser()
     config = parser.parse_args()
+    #If stride value is ommited., then it is equal to k_mer
+    if not config.stride: config.stride = config.k_mer
     # Handle disable_wandb overriding log_wandb and forcing it to be disabled.
     if config.disable_wandb:
         config.log_wandb = False
