@@ -66,8 +66,9 @@ def run(config):
         "use_unk_token",
         "n_layers",
         "n_heads",
+        "dataset_name",
     ]
-    default_kwargs = vars(get_parser().parse_args(["--pretrained_checkpoint=dummy.pt"]))
+    default_kwargs = vars(get_parser().parse_args(["--pretrained_checkpoint=dummy.pt", "--dataset=foo_bar"]))
     for key in keys_to_reuse:
         if not hasattr(config, key) or getattr(config, key) == getattr(pre_checkpoint["config"], key):
             pass
@@ -108,7 +109,12 @@ def run(config):
     if config.taxon.lower() == "bin":
         config.target_level = "bin_uri"
     else:
-        config.target_level = config.taxon + "_name"
+        if config.dataset_name == "CANADA-1.5M":
+            config.target_level = config.taxon + "_name"
+        elif config.dataset_name == "BIOSCAN-5M":
+            config.target_level = config.taxon + "_index"
+        else:
+            raise NotImplementedError("Dataset format is not supported. Must be one of CANADA-1.5M or BIOSCAN-5M")
 
     timing_stats["preamble"] = time.time() - t_start
 
@@ -212,13 +218,13 @@ def run(config):
             tags=["evaluate", job_type],
         )
 
-    # Log results to wandb ----------------------------------------------------
-    wandb.log(
-        {
-            **{f"knn/duration/{k}": v for k, v in timing_stats.items()},
-            **{f"knn/{partition}/{k}": v for partition, res in results.items() for k, v in res.items()},
-        },
-    )
+        # Log results to wandb ----------------------------------------------------
+        wandb.log(
+            {
+                **{f"knn/duration/{k}": v for k, v in timing_stats.items()},
+                **{f"knn/{partition}/{k}": v for partition, res in results.items() for k, v in res.items()},
+            },
+        )
 
 
 def get_parser():

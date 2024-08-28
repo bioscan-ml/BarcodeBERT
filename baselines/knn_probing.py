@@ -168,13 +168,13 @@ def run(config):
             tags=["evaluate", job_type],
         )
 
-    # Log results to wandb ----------------------------------------------------
-    wandb.log(
-        {
-            **{f"knn/duration/{k}": v for k, v in timing_stats.items()},
-            **{f"knn/{partition}/{k}": v for partition, res in results.items() for k, v in res.items()},
-        },
-    )
+        # Log results to wandb ----------------------------------------------------
+        wandb.log(
+            {
+                **{f"knn/duration/{k}": v for k, v in timing_stats.items()},
+                **{f"knn/{partition}/{k}": v for partition, res in results.items() for k, v in res.items()},
+            },
+        )
 
 
 def get_parser():

@@ -165,8 +165,9 @@ def run(config):
         "use_unk_token",
         "n_layers",
         "n_heads",
+        "dataset_name",
     ]
-    default_kwargs = vars(get_parser().parse_args(["--pretrained_checkpoint=dummy.pt"]))
+    default_kwargs = vars(get_parser().parse_args(["--pretrained_checkpoint=dummy.pt", "--dataset=foo_bar"]))
     for key in keys_to_reuse:
         if not hasattr(config, key) or getattr(config, key) == getattr(pre_checkpoint["config"], key):
             pass
@@ -187,7 +188,7 @@ def run(config):
 
     # DATASET =================================================================
 
-    if config.dataset_name != "BIOSCAN-1M":
+    if config.dataset_name not in ["CANADA-1.5M", "BIOSCAN-5M"]:
         raise NotImplementedError(f"Dataset {config.dataset_name} not supported.")
 
     if config.data_dir is None:
@@ -198,7 +199,7 @@ def run(config):
         "stride": config.stride,
         "max_len": config.max_len,
         "tokenizer": config.tokenizer,
-        "use_unk_token": config.use_unk_token,
+        "dataset_format": config.dataset_name,
     }
     dataset_train = DNADataset(
         file_path=os.path.join(config.data_dir, "supervised_train.csv"),
@@ -383,6 +384,7 @@ def run(config):
     if config.checkpoint_path is None:
         print("Model will not be saved.")
     else:
+        os.makedirs(config.model_output_dir, exist_ok=True)
         print(f"Model will be saved to '{config.checkpoint_path}'")
 
     # RESUME ==================================================================

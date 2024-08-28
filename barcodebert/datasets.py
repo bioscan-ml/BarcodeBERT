@@ -66,12 +66,23 @@ class DnaBertBPETokenizer(object):
 
 class DNADataset(Dataset):
     def __init__(
-        self, file_path, k_mer=4, stride=None, max_len=256, randomize_offset=False, use_unk_token=True, tokenizer="kmer"
+        self,
+        file_path,
+        k_mer=4,
+        stride=4,
+        max_len=256,
+        randomize_offset=False,
+        tokenizer="kmer",
+        dataset_format="CANADA-1.5M",
     ):
         self.k_mer = k_mer
         self.stride = k_mer if stride is None else stride
         self.max_len = max_len
         self.randomize_offset = randomize_offset
+
+        #Check that the dataframe contains a valid format
+        if dataset_format not in ["CANADA-1.5M", "BIOSCAN-5M"]:
+            raise NotImplementedError(f"Dataset {dataset_format} not supported.")
 
         # Vocabulary
         letters = "ACGT"
@@ -101,10 +112,13 @@ class DNADataset(Dataset):
             raise ValueError(f'Tokenizer "{tokenizer}" not recognized.')
         df = pd.read_csv(file_path, sep="\t" if file_path.endswith(".tsv") else ",", keep_default_na=False)
         self.barcodes = df["nucleotides"].to_list()
-        self.label_names = df["species_name"].to_list()
-        self.labels = df["species_index"].to_list()
-
-        self.num_labels = 22_622
+        if dataset_format == "CANADA-1.5M":
+            self.labels, self.label_set = pd.factorize(df['species_name'], sort=True)
+            self.num_labels = len(self.label_set)
+        else:
+            self.label_names = df["species_name"].to_list()
+            self.labels = df["species_index"].to_list()
+            self.num_labels = 22_622
 
     def __len__(self):
         return len(self.barcodes)

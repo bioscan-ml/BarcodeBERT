@@ -130,7 +130,7 @@ def run(config):
 
     # DATASET =================================================================
 
-    if config.dataset_name != "BIOSCAN-1M":
+    if config.dataset_name not in ["CANADA-1.5M", "BIOSCAN-5M"]:
         raise NotImplementedError(f"Dataset {config.dataset_name} not supported.")
 
     if config.data_dir is None:
@@ -141,7 +141,7 @@ def run(config):
         "stride": config.stride,
         "max_len": config.max_len,
         "tokenizer": config.tokenizer,
-        "use_unk_token": config.use_unk_token,
+        "dataset_format": config.dataset_name,
     }
 
     dataset_train = DNADataset(
@@ -337,6 +337,7 @@ def run(config):
     if config.checkpoint_path is None:
         print("Model will not be saved.")
     else:
+        os.makedirs(config.model_output_dir, exist_ok=True)
         print(f"Model will be saved to '{config.checkpoint_path}'")
 
     # RESUME ==================================================================
@@ -973,7 +974,7 @@ def get_parser():
         "--dataset",
         dest="dataset_name",
         type=str,
-        default="BIOSCAN-1M",
+        default="BIOSCAN-5M",
         help="Name of the dataset to learn. Default: %(default)s",
     )
     group.add_argument(
