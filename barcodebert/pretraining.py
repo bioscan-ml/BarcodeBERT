@@ -199,7 +199,6 @@ def run(config):
     dataloader_val = torch.utils.data.DataLoader(dataset_val, **dl_val_kwargs)
 
     # MODEL ===================================================================
-
     bert_config = BertConfig(
         vocab_size=dataset_train.vocab_size,
         num_hidden_layers=config.n_layers,
@@ -842,6 +841,7 @@ def evaluate(
     mask_ratio=0.5,
     device="cuda",
     distance_table=None,
+    n_special_tokens=2,
 ):
     r"""
     Evaluate the encoder on the validation data.
@@ -893,17 +893,31 @@ def evaluate(
 
             # Build the masking on the fly ------------------------------------
             # t_start_masking = time.time()
+            # Create a mask for allowed tokens i.e. that excludes all special tokens [<MASK>, <UNK>]
+            special_tokens_mask = (sequences > (n_special_tokens - 1))
+
+            if config.tokenize_n_nucleotide:
+                # Either exlude the last token [N..N] if config.predict_n_nucleotide == True
+                # Or exclude all tokens containing Ns i.e "bad kamers" whose index in the vocab
+                # is greater than 4**k
+                special_tokens_mask &= sequences < (n_special_tokens + 4**config.k_mer - 1)
+
+
+            special_tokens_mask = special_tokens_mask.to(device)
             masked_input = sequences.clone()
             random_mask = torch.rand(masked_input.shape, generator=rng, device=device)
             input_maskout = random_mask < mask_ratio
-            input_maskout &= masked_input != 1  # Cannot mask the [<UNK>] token in the hard case
+            input_maskout &= special_tokens_mask  # Cannot mask the special tokens including [UNK]
             masked_input[input_maskout] = 0
 
             # Forward pass ----------------------------------------------------
-            out = model(masked_input)  # , attention_mask=att_mask)
+            out = model(masked_input , attention_mask=att_mask)
             # Measure loss
-            targets = sequences - 2 * (sequences > 1)
-            loss = criterion(out.logits.view(-1, 4**config.k_mer), targets.view(-1))
+            targets = sequences - n_special_tokens * (sequences > (n_special_tokens - 1))
+            loss = criterion(
+                        out.logits.view(-1, 4**config.k_mer)[special_tokens_mask.view(-1)],
+                        targets.view(-1)[special_tokens_mask.view(-1)],
+                    )
 
             # Metrics ---------------------------------------------------------
             # Update the total loss for the epoch
@@ -916,13 +930,26 @@ def evaluate(
 
             # Compute accuracy
             x_pred = torch.argmax(out.logits, dim=-1)
+            # Create a mask to ignore all special tokens [<MASK>, <UNK>]
+            special_tokens_mask = targets > (n_special_tokens - 1)
+
             is_correct = x_pred == targets
             # Overall accuracy, including tokens which weren't masked out
-            acc_all = batch_size_this_gpu * is_correct.sum() / is_correct.numel()
+            acc_all = (
+                batch_size_this_gpu * is_correct[special_tokens_mask].sum() / is_correct[special_tokens_mask].numel()
+            )
             # Accuracy only on the masked tokens
-            acc_msk = batch_size_this_gpu * is_correct[input_maskout].sum() / input_maskout.sum()
+            acc_msk = (
+                batch_size_this_gpu
+                * is_correct[input_maskout & special_tokens_mask].sum()
+                / (input_maskout & special_tokens_mask).sum()
+            )
             # Accuracy only on the non-masked tokens
-            acc_kpt = batch_size_this_gpu * is_correct[~input_maskout].sum() / (~input_maskout).sum()
+            acc_kpt = (
+                batch_size_this_gpu
+                * is_correct[~input_maskout & special_tokens_mask].sum()
+                / (~input_maskout & special_tokens_mask).sum()
+            )
             if config.distributed:
                 # Fetch results from other GPUs
                 dist.reduce(acc_all, 0, op=dist.ReduceOp.SUM)
