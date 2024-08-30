@@ -76,7 +76,7 @@ def representations_from_df(filename, embedder, batch_size=128):
         os.mkdir(backbone_folder)
 
     # Check if the embeddings have been saved for that file
-    prefix = filename.split(".")[0].split("/")[-1]
+    prefix = filename.split("/")[-1].split(".")[0]
     out_fname = f"{os.path.join(backbone_folder, prefix)}.pickle"
     print(out_fname)
 

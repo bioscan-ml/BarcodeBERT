@@ -11,13 +11,13 @@ Currently, we leverage the release of the [BEND](https://github.com/frederikkema
 * The nucleotide transformer (NT)
 
 | Model        | Architecture | SSL-Pretraining | Tokens seen   |  **Seen: Species**  (Fine-tuned )    | Linear probe  **Seen: Species** (Linear Probe) | **Unseen: Genus** (1NN-Probe) |
- -------------|--------------|-----------------|---------------|:-----------------:|:-------------:|:----------------:|  
+ -------------|--------------|-----------------|---------------|:-----------------:|:-------------:|:----------------:|
  CNN baseline | CNN          | --              | --            | 97.70             | --            | 29.88
- NT           | Transformer  | Multi-Species   | 300\,B        | 98.99             | 52.41         | 21.67  
- DNABERT-2    | Transformer  | Multi-Species   | 512\,B        | **99.23**       | 67.81         | 17.99  
- DNABERT-S    | Transformer  | Multi-Species   | ~1,000\,B     | 98.99             | **95.50**        | 17.70  
- HyenaDNA     | SSM          | Human DNA       | 5\,B          | 98.71             | 54.82         | 19.26  
- BarcodeBERT  | Transformer  | DNA barcodes    | 5\,B          | 98.52             | 91.93         | 23.15  
+ NT           | Transformer  | Multi-Species   | 300\,B        | 98.99             | 52.41         | 21.67
+ DNABERT-2    | Transformer  | Multi-Species   | 512\,B        | **99.23**       | 67.81         | 17.99
+ DNABERT-S    | Transformer  | Multi-Species   | ~1,000\,B     | 98.99             | **95.50**        | 17.70
+ HyenaDNA     | SSM          | Human DNA       | 5\,B          | 98.71             | 54.82         | 19.26
+ BarcodeBERT  | Transformer  | DNA barcodes    | 5\,B          | 98.52             | 91.93         | 23.15
  Ours (8-4-4) | Transformer  | DNA barcodes    | 7\,B          | **99.28**       | 94.47         | **47.03**
   BLAST*       | --           | --              | --            | **99.78**     |     ---       |  **58.74**
   
@@ -43,9 +43,9 @@ python data_split.py BIOSCAN-5M_Dataset_metadata.tsv
 
 ```bash
 python barcodebert/pretraining.py --dataset=BIOSCAN-5M --k_mer=8 --n_layers=4 --n_heads=4 --data_dir=data/ --checkpoint=model_checkpoints/BIOSCAN-5M/8_4_4/checkpoint_pretraining.pt
-python barcodebert/knn_probing.py --data_dir=data/ --checkpoint=model_checkpoints/BIOSCAN-5M/8_4_4/checkpoint_pretraining.pt
-python barcodebert/finetuning.py --data_dir=data/ --checkpoint=model_checkpoints/BIOSCAN-5M/8_4_4/checkpoint_pretraining.pt
-python barcodebert/finetuning.py --data_dir=data/ --checkpoint=model_checkpoints/BIOSCAN-5M/8_4_4/checkpoint_pretraining.pt --freeze-encoder
+python barcodebert/knn_probing.py --data_dir=data/ --pretrained_checkpoint=model_checkpoints/BIOSCAN-5M/8_4_4/checkpoint_pretraining.pt
+python barcodebert/finetuning.py --data_dir=data/ --pretrained_checkpoint=model_checkpoints/BIOSCAN-5M/8_4_4/checkpoint_pretraining.pt
+python barcodebert/finetuning.py --data_dir=data/ --pretrained_checkpoint=model_checkpoints/BIOSCAN-5M/8_4_4/checkpoint_pretraining.pt --freeze-encoder
 ```
 
 4. Baseline model pipelines: The desired backbone can be selected using one of the following keywords: `NT, Hyena_DNA, DNABERT-2, DNABERT-S` 
