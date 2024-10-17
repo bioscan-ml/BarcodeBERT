@@ -48,6 +48,7 @@ def run(config):
     utils.setup_slurm_distributed()
     config.world_size = int(os.environ.get("WORLD_SIZE", 1))
     config.distributed = utils.check_is_distributed()
+
     if config.world_size > 1 and not config.distributed:
         raise EnvironmentError(
             f"WORLD_SIZE is {config.world_size}, but not all other required"
@@ -426,7 +427,7 @@ def run(config):
             total_step=total_step,
             n_samples_seen=n_samples_seen,
             distance_table=distance_table,
-            n_special_tokens=len(dataset_train.special_tokens)
+            n_special_tokens=len(dataset_train.special_tokens),
         )
         t_end_train = time.time()
 
@@ -639,14 +640,13 @@ def train_one_epoch(
         # t_start_masking = time.time()
 
         # Create a mask for allowed tokens i.e. that excludes all special tokens [<MASK>, <UNK>]
-        special_tokens_mask = (sequences > (n_special_tokens - 1))
+        special_tokens_mask = sequences > (n_special_tokens - 1)
 
         if config.tokenize_n_nucleotide:
             # Either exlude the last token [N..N] if config.predict_n_nucleotide == True
             # Or exclude all tokens containing Ns i.e "bad kamers" whose index in the vocab
             # is greater than 4**k
             special_tokens_mask &= sequences < (n_special_tokens + 4**config.k_mer - 1)
-
 
         special_tokens_mask = special_tokens_mask.to(device)
         masked_input = sequences.clone()
@@ -663,13 +663,13 @@ def train_one_epoch(
         ct_forward = torch.cuda.Event(enable_timing=True)
         ct_forward.record()
         # Perform the forward pass through the model
-        out = model(masked_input , attention_mask=att_mask)
+        out = model(masked_input, attention_mask=att_mask)
         targets = sequences - n_special_tokens * (sequences > (n_special_tokens - 1))
         # Measure loss
         loss = criterion(
-                    out.logits.view(-1, 4**config.k_mer)[special_tokens_mask.view(-1)],
-                    targets.view(-1)[special_tokens_mask.view(-1)],
-                )
+            out.logits.view(-1, 4**config.k_mer)[special_tokens_mask.view(-1)],
+            targets.view(-1)[special_tokens_mask.view(-1)],
+        )
 
         # Backward pass -------------------------------------------------------
         # Reset gradients
@@ -894,14 +894,13 @@ def evaluate(
             # Build the masking on the fly ------------------------------------
             # t_start_masking = time.time()
             # Create a mask for allowed tokens i.e. that excludes all special tokens [<MASK>, <UNK>]
-            special_tokens_mask = (sequences > (n_special_tokens - 1))
+            special_tokens_mask = sequences > (n_special_tokens - 1)
 
             if config.tokenize_n_nucleotide:
                 # Either exlude the last token [N..N] if config.predict_n_nucleotide == True
                 # Or exclude all tokens containing Ns i.e "bad kamers" whose index in the vocab
                 # is greater than 4**k
                 special_tokens_mask &= sequences < (n_special_tokens + 4**config.k_mer - 1)
-
 
             special_tokens_mask = special_tokens_mask.to(device)
             masked_input = sequences.clone()
@@ -911,13 +910,13 @@ def evaluate(
             masked_input[input_maskout] = 0
 
             # Forward pass ----------------------------------------------------
-            out = model(masked_input , attention_mask=att_mask)
+            out = model(masked_input, attention_mask=att_mask)
             # Measure loss
             targets = sequences - n_special_tokens * (sequences > (n_special_tokens - 1))
             loss = criterion(
-                        out.logits.view(-1, 4**config.k_mer)[special_tokens_mask.view(-1)],
-                        targets.view(-1)[special_tokens_mask.view(-1)],
-                    )
+                out.logits.view(-1, 4**config.k_mer)[special_tokens_mask.view(-1)],
+                targets.view(-1)[special_tokens_mask.view(-1)],
+            )
 
             # Metrics ---------------------------------------------------------
             # Update the total loss for the epoch
@@ -1264,8 +1263,9 @@ def cli():
     r"""Command-line interface for model training."""
     parser = get_parser()
     config = parser.parse_args()
-    #If stride value is ommited., then it is equal to k_mer
-    if not config.stride: config.stride = config.k_mer
+    # If stride value is ommited., then it is equal to k_mer
+    if not config.stride:
+        config.stride = config.k_mer
     # Handle disable_wandb overriding log_wandb and forcing it to be disabled.
     if config.disable_wandb:
         config.log_wandb = False

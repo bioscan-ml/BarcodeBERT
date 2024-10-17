@@ -61,9 +61,14 @@ def run(config):
 
     # DATASET =================================================================
     if config.taxon.lower() == "bin":
-        target_level = "bin_uri"
+        config.target_level = "bin_uri"
     else:
-        target_level = f"{config.taxon}_index"
+        if config.dataset_name == "CANADA-1.5M":
+            target_level = config.taxon + "_name"
+        elif config.dataset_name == "BIOSCAN-5M":
+            target_level = config.taxon + "_index"
+        else:
+            raise NotImplementedError("Dataset format is not supported. Must be one of CANADA-1.5M or BIOSCAN-5M")
 
     timing_stats["preamble"] = time.time() - t_start
     t_start_embed = time.time()
@@ -80,13 +85,13 @@ def run(config):
 
     # Generate emebddings for the training and test sets
     print("Generating embeddings for test set", flush=True)
-    X_unseen = representations_from_df(test_filename, embedder, batch_size=128)
-    y_unseen = labels_from_df(test_filename, f"{config.taxon}_index", label_pipeline)
+    X_unseen = representations_from_df(test_filename, embedder, batch_size=128, dataset=config.dataset_name)
+    y_unseen = labels_from_df(test_filename, target_level, label_pipeline)
     print(X_unseen.shape, y_unseen.shape)
 
     print("Generating embeddings for train set", flush=True)
-    X = representations_from_df(train_filename, embedder, batch_size=128)
-    y = labels_from_df(train_filename, f"{config.taxon}_index", label_pipeline)
+    X = representations_from_df(train_filename, embedder, batch_size=128, dataset=config.dataset_name)
+    y = labels_from_df(train_filename, target_level, label_pipeline)
     print(X.shape, y.shape)
 
     timing_stats["embed"] = time.time() - t_start_embed
@@ -222,6 +227,12 @@ def get_parser():
         required=True,
         help="Architecture of the Encoder one of [DNABERT-2, HyenaDNA, DNABERT-S, \
               BarcodeBERT, NT]",
+    )
+    group.add_argument(
+        "--dataset_name",
+        default="BIOSCAN-5M",
+        type=str,
+        help="Dataset format %(default)s",
     )
     # kNN args ----------------------------------------------------------------
     group = parser.add_argument_group("kNN parameters")

@@ -20,6 +20,7 @@ from transformers.modeling_outputs import TokenClassifierOutput
 sys.path.append(".")
 
 from barcodebert import utils
+from barcodebert.io import safe_save_model
 from baselines.datasets import DNADataset
 from baselines.io import load_baseline_model
 
@@ -39,23 +40,41 @@ class ClassificationModel(nn.Module):
         self.hidden_size = embedder.hidden_size
         self.classifier = nn.Linear(self.hidden_size, self.num_labels)
 
-    def forward(self, input_ids=None, mask=None, labels=None):
+    def forward(self, sequences=None, mask=None, labels=None):
         # Getting the embeddings
 
         # call each model's wrapper
         if self.backbone == "NT":
-            out = self.base_model(input_ids, output_hidden_states=True)["hidden_states"][-1]
+            out = self.base_model(sequences, attention_mask=mask, output_hidden_states=True)["hidden_states"][-1]
 
         elif self.backbone == "Hyena_DNA":
-            out = self.base_model(input_ids)
+            out = self.base_model(sequences)
 
-        elif self.backbone in ["DNABERT-2", "DNABERT-S"]:
-            out = self.base_model(input_ids)[0]
+        elif self.backbone in ["DNABERT", "DNABERT-2", "DNABERT-S"]:
+            out = self.base_model(sequences, attention_mask=mask)[0]
 
         elif self.backbone == "BarcodeBERT":
-            out = self.base_model(input_ids).hidden_states[-1]
+            out = self.base_model(sequences, att_mask).hidden_states[-1]
 
-        GAP_embeddings = out.mean(1)  # TODO: Swap between GAP and CLS
+        # if backbone != "BarcodeBERT":
+        # print(out.shape)
+
+        n_embeddings = mask.sum(axis=1)
+        # print(n_embeddings.shape)
+
+        att_mask = mask.unsqueeze(2).expand(-1, -1, self.hidden_size)
+        # print(att_mask.shape)
+
+        out = out * att_mask
+        # print(out.shape)
+        out = out.sum(axis=1)
+        # print(out.shape)
+        out = torch.div(out.t(), n_embeddings)
+        # print(out.shape)
+
+        # Transpose back GAP embeddings
+        GAP_embeddings = out.t()
+
         # calculate losses
         logits = self.classifier(GAP_embeddings.view(-1, self.hidden_size))
         loss = None
@@ -101,12 +120,13 @@ def evaluate(
     y_pred_all = []
     xent_all = []
 
-    for sequences, y_true in dataloader:
+    for sequences, y_true, att_mask in dataloader:
         sequences = sequences.view(-1, sequences.shape[-1]).to(device)
+        att_mask = att_mask.view(-1, att_mask.shape[-1]).to(device)
         y_true = y_true.to(device)
 
         with torch.no_grad():
-            logits = model(sequences, labels=y_true).logits
+            logits = model(sequences, labels=y_true, mask=att_mask).logits
             xent = F.cross_entropy(logits, y_true, reduction="none")
             y_pred = torch.argmax(logits, dim=-1)
 
@@ -181,7 +201,8 @@ def run(config):
     # Setup for distributed training
     utils.setup_slurm_distributed()
     config.world_size = int(os.environ.get("WORLD_SIZE", 1))
-    config.distributed = utils.check_is_distributed()
+    # config.distributed = utils.check_is_distributed()
+    config.distributed = False
     if config.world_size > 1 and not config.distributed:
         raise EnvironmentError(
             f"WORLD_SIZE is {config.world_size}, but not all other required"
@@ -273,7 +294,7 @@ def run(config):
 
     # DATASET =================================================================
 
-    if config.dataset_name not in ["CANADA_1.5M", "BIOSCAN-5M"]:
+    if config.dataset_name not in ["CANADA-1.5M", "BIOSCAN-5M"]:
         raise NotImplementedError(f"Dataset {config.dataset_name} not supported.")
 
     # Handle default stride dynamically set to equal k-mer size
@@ -281,17 +302,22 @@ def run(config):
         config.stride = config.k_mer
 
     dataset_train = DNADataset(
-        file_path=os.path.join(config.data_dir, "supervised_train.csv"), embedder=embedder, randomize_offset=False
+        file_path=os.path.join(config.data_dir, "supervised_train.csv"),
+        embedder=embedder,
+        randomize_offset=False,
+        dataset_format=config.dataset_name,
     )
     dataset_val = DNADataset(
         file_path=os.path.join(config.data_dir, "supervised_val.csv"),
         embedder=embedder,
         randomize_offset=False,
+        dataset_format=config.dataset_name,
     )
     dataset_test = DNADataset(
         file_path=os.path.join(config.data_dir, "supervised_test.csv"),
         embedder=embedder,
         randomize_offset=False,
+        dataset_format=config.dataset_name,
     )
 
     distinct_val_test = True
@@ -442,7 +468,7 @@ def run(config):
         config.model_output_dir = os.path.join(
             config.models_dir,
             config.dataset_name,
-            f"{config.run_name}__{config.run_id}",
+            config.backbone,
         )
         config.checkpoint_path = os.path.join(config.model_output_dir, "checkpoint_finetune.pt")
         if config.log_wandb and config.global_rank == 0:
@@ -451,6 +477,7 @@ def run(config):
     if config.checkpoint_path is None:
         print("Model will not be saved.")
     else:
+        os.makedirs(config.model_output_dir, exist_ok=True)
         print(f"Model will be saved to '{config.checkpoint_path}'")
 
     # RESUME ==================================================================
@@ -593,25 +620,24 @@ def run(config):
 
         # Save model ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         t_start_save = time.time()
-        # if config.model_output_dir and (not config.distributed or config.global_rank == 0):
-        #     safe_save_model(
-        #         {
-        #             "model": model,
-        #             "optimizer": optimizer,
-        #             "scheduler": scheduler,
-        #         },
-        #         config.checkpoint_path,
-        #         config=config,
-        #         epoch=epoch,
-        #         total_step=total_step,
-        #         n_samples_seen=n_samples_seen,
-        #         bert_config=pre_checkpoint["bert_config"],
-        #         **best_stats,
-        #     )
-        #     if config.save_best_model and best_stats["best_epoch"] == epoch:
-        #         ckpt_path_best = os.path.join(config.model_output_dir, "best_finetune.pt")
-        #         print(f"Copying model to {ckpt_path_best}")
-        #         shutil.copyfile(config.checkpoint_path, ckpt_path_best)
+        if config.model_output_dir and (not config.distributed or config.global_rank == 0):
+            safe_save_model(
+                {
+                    "model": model,
+                    "optimizer": optimizer,
+                    "scheduler": scheduler,
+                },
+                config.checkpoint_path,
+                config=config,
+                epoch=epoch,
+                total_step=total_step,
+                n_samples_seen=n_samples_seen,
+                bert_config=None,
+            )
+            if config.save_best_model and best_stats["best_epoch"] == epoch:
+                ckpt_path_best = os.path.join(config.model_output_dir, "best_finetune.pt")
+                print(f"Copying model to {ckpt_path_best}")
+                shutil.copyfile(config.checkpoint_path, ckpt_path_best)
 
         t_end_save = time.time()
         timing_stats["saving"] = t_end_save - t_start_save
@@ -780,13 +806,14 @@ def train_one_epoch(
 
     t_end_batch = time.time()
     t_start_wandb = t_end_wandb = None
-    for batch_idx, (sequences, y_true) in enumerate(dataloader):
+    for batch_idx, (sequences, y_true, att_mask) in enumerate(dataloader):
         t_start_batch = time.time()
         batch_size_this_gpu = sequences.shape[0]
 
         # Move training inputs and targets to the GPU
         # sequences = sequences.to(device)
         sequences = sequences.view(-1, sequences.shape[-1]).to(device)
+        att_mask = att_mask.view(-1, sequences.shape[-1]).to(device)
         y_true = y_true.to(device)
 
         # Forward pass --------------------------------------------------------
@@ -795,7 +822,7 @@ def train_one_epoch(
         ct_forward = torch.cuda.Event(enable_timing=True)
         ct_forward.record()
         # Perform the forward pass through the model
-        out = model(sequences, labels=y_true)
+        out = model(sequences, labels=y_true, mask=att_mask)
         loss = out.loss
 
         # Backward pass -------------------------------------------------------
@@ -846,6 +873,7 @@ def train_one_epoch(
             print("loss.shape          =", loss.shape)
             # Debugging intensifies
             print("sequences[0]     =", sequences[0])
+            print("att_mask[0]      =", att_mask[0])
             print("y_true[0]        =", y_true[0])
             print("y_pred[0]        =", y_pred[0])
             print("logits[0]        =", out.logits[0])
@@ -981,6 +1009,13 @@ def get_parser():
         required=True,
         help="Architecture of the Encoder one of [DNABERT-2, Hyena_DNA, DNABERT-S, \
               BarcodeBERT, NT]",
+    )
+
+    group.add_argument(
+        "--dataset_name",
+        default="BIOSCAN-5M",
+        type=str,
+        help="Dataset format %(default)s",
     )
     return parser
 

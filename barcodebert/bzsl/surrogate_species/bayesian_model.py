@@ -6,11 +6,7 @@ from scipy.linalg import solve_triangular
 from scipy.spatial.distance import cdist
 from scipy.special import gammaln
 
-from barcodebert.bzsl.surrogate_species.utils import (
-    DataLoader,
-    apply_pca,
-    perf_calc_acc,
-)
+from barcodebert.bzsl.surrogate_species.utils import DataLoader, apply_pca, perf_calc_acc
 
 
 class Model:

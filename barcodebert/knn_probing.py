@@ -14,8 +14,8 @@ from torch import nn
 from torchtext.vocab import vocab as build_vocab_from_dict
 
 from barcodebert import utils
-from barcodebert.datasets import KmerTokenizer, representations_from_df
-from barcodebert.io import get_project_root, load_pretrained_model
+from barcodebert.datasets import BPETokenizer, KmerTokenizer, representations_from_df
+from barcodebert.io import load_pretrained_model
 
 
 def run(config):
@@ -63,8 +63,11 @@ def run(config):
         "stride",
         "max_len",
         "tokenizer",
-        "use_unk_token",
+        "bpe_path",
         "tokenize_n_nucleotide",
+        "predict_n_nucleotide",
+        "pretrain_levenshtein",
+        "levenshtein_vectorized",
         "n_layers",
         "n_heads",
         "dataset_name",
@@ -73,7 +76,7 @@ def run(config):
     for key in keys_to_reuse:
         if not hasattr(config, key) or getattr(config, key) == getattr(pre_checkpoint["config"], key):
             pass
-        elif getattr(config, key) == default_kwargs[key]:
+        elif getattr(config, key) is None or getattr(config, key) == default_kwargs[key]:
             print(
                 f"  Overriding default config value {key}={getattr(config, key)}"
                 f" with {getattr(pre_checkpoint['config'], key)} from pretained checkpoint."
@@ -90,35 +93,36 @@ def run(config):
 
     # DATASET =================================================================
 
-    base_pairs = "ACGT"
-    # specials = ["[MASK]", "[CLS]", "[SEP]", "[PAD]", "[UNK]"]
-    specials = ["[MASK]", "[UNK]"]
-    UNK_TOKEN = "[UNK]"
+    if config.tokenizer == "kmer":
+        base_pairs = "ACGT"
+        # specials = ["[MASK]", "[CLS]", "[SEP]", "[PAD]", "[UNK]"]
+        specials = ["[MASK]", "[UNK]"]
+        UNK_TOKEN = "[UNK]"
 
-    if config.tokenize_n_nucleotide:
-        # Encode kmers which contain N differently depending on where it is
-        base_pairs += "N"
+        if config.tokenize_n_nucleotide:
+            # Encode kmers which contain N differently depending on where it is
+            base_pairs += "N"
 
-    kmers = ["".join(kmer) for kmer in product(base_pairs, repeat=config.k_mer)]
+        kmers = ["".join(kmer) for kmer in product(base_pairs, repeat=config.k_mer)]
 
-    if config.tokenize_n_nucleotide:
-        prediction_kmers = []
-        other_kmers = []
-        for kmer in kmers:
-            if "N" in kmer:
-                other_kmers.append(kmer)
-            else:
-                prediction_kmers.append(kmer)
+        if config.tokenize_n_nucleotide:
+            prediction_kmers = []
+            other_kmers = []
+            for kmer in kmers:
+                if "N" in kmer:
+                    other_kmers.append(kmer)
+                else:
+                    prediction_kmers.append(kmer)
 
-        kmers = prediction_kmers + other_kmers
+            kmers = prediction_kmers + other_kmers
 
-    kmer_dict = dict.fromkeys(kmers, 1)
-    vocab = build_vocab_from_dict(kmer_dict, specials=specials)
-    vocab.set_default_index(vocab[UNK_TOKEN])
-    tokenizer = KmerTokenizer(config.k_mer, vocab, stride=config.k_mer, padding=True, max_len=config.max_len)
+        kmer_dict = dict.fromkeys(kmers, 1)
+        vocab = build_vocab_from_dict(kmer_dict, specials=specials)
+        vocab.set_default_index(vocab[UNK_TOKEN])
+        tokenizer = KmerTokenizer(config.k_mer, vocab, stride=config.k_mer, padding=True, max_len=config.max_len)
 
-    if config.data_dir is None:
-        config.data_dir = os.path.join(get_project_root(), "data")
+    elif config.tokenizer == "bpe":
+        tokenizer = BPETokenizer(padding=True, max_tokenized_len=config.max_len, bpe_path=config.bpe_path)
 
     df_train = pd.read_csv(os.path.join(config.data_dir, "supervised_train.csv"))
     df_test = pd.read_csv(os.path.join(config.data_dir, "unseen.csv"))
@@ -140,9 +144,11 @@ def run(config):
     t_start_embed = time.time()
     # Generate emebddings for the training and test sets
     print("Generating embeddings for test set", flush=True)
-    X_unseen, y_unseen, orders = representations_from_df(df_test, config.target_level, model, tokenizer)
+    X_unseen, y_unseen, orders = representations_from_df(
+        df_test, config.target_level, model, tokenizer, config.dataset_name
+    )
     print("Generating embeddings for train set", flush=True)
-    X, y, train_orders = representations_from_df(df_train, config.target_level, model, tokenizer)
+    X, y, train_orders = representations_from_df(df_train, config.target_level, model, tokenizer, config.dataset_name)
     timing_stats["embed"] = time.time() - t_start_embed
 
     c = 0
