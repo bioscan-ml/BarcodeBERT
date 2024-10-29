@@ -16,7 +16,7 @@ from transformers import AutoTokenizer
 
 
 class DNADataset(Dataset):
-    def __init__(self, file_path, embedder, randomize_offset=False, max_length=660, dataset_format="CANADA-1.5M"):
+    def __init__(self, file_path, embedder, randomize_offset=False, max_length=660, dataset_format="CANADA-1.5M", target="species"):
         self.randomize_offset = randomize_offset
 
         df = pd.read_csv(file_path, sep="\t" if file_path.endswith(".tsv") else ",")
@@ -26,14 +26,20 @@ class DNADataset(Dataset):
         self.backbone_name = embedder.name
         self.max_len = max_length
         self.dataset_format = dataset_format
+        self.target = target
 
         if dataset_format == "CANADA-1.5M":
             self.labels, self.label_set = pd.factorize(df["species_name"], sort=True)
-            self.ids = df["species_name"].to_list()  # ideally, this should be process id
+            if target not in ["processid", "bin_uri"]:
+                target += '_name'
+            self.ids = df[target].to_list()  # ideally, this should be process id
             self.num_labels = len(self.label_set)
         else:
             self.num_labels = 22_622
-            self.ids = df["species_index"].to_list()  # ideally, this should be process id
+            #self.ids = df["species_index"].to_list()  # ideally, this should be process id
+            if target not in ["processid", "dna_bin"]:
+                target += '_index'
+            self.ids = df[target].to_list() 
             self.labels = self.ids
 
     def __len__(self):
@@ -102,7 +108,10 @@ class DNADataset(Dataset):
             # print(processed_barcode.shape)
             att_mask = encoding_info["attention_mask"]
 
-        label = torch.tensor(self.labels[idx], dtype=torch.int64)
+        if target not in ["processid", "bin_uri", "dna_bin"]:
+            label = torch.tensor(self.labels[idx], dtype=torch.int64)
+        else:
+            label = self.labels[idx]
 
         return processed_barcode, label, att_mask
 
@@ -114,6 +123,7 @@ def representations_from_df(
     save_embeddings=True,
     dataset="BIOSCAN-5M",
     embeddings_folder="/scratch/ssd004/scratch/pmillana/embeddings/embeddings",
+    target='species'
 ):
 
     # create embeddings folder
@@ -150,7 +160,7 @@ def representations_from_df(
     else:
 
         dataset_val = DNADataset(
-            file_path=filename, embedder=embedder, randomize_offset=False, max_length=660, dataset_format=dataset
+            file_path=filename, embedder=embedder, randomize_offset=False, max_length=660, dataset_format=dataset, target=target
         )
 
         dl_val_kwargs = {
@@ -175,13 +185,13 @@ def representations_from_df(
 
                 # call each model's wrapper
                 if backbone == "NT":
-                    out = embedder.model(sequences, output_hidden_states=True)["hidden_states"][-1]
+                    out = embedder.model(sequences, output_hidden_states=True, attention_mask=att_mask)["hidden_states"][-1]
 
                 elif backbone == "Hyena_DNA":
                     out = embedder.model(sequences)
 
                 elif backbone in ["DNABERT", "DNABERT-2", "DNABERT-S"]:
-                    out = embedder.model(sequences)[0]
+                    out = embedder.model(sequences, attention_mask=att_mask)[0]
 
                 elif backbone == "BarcodeBERT":
                     out = embedder.model(sequences, att_mask).hidden_states[-1]
@@ -205,6 +215,10 @@ def representations_from_df(
                 # Move embeddings back to CPU and convert to numpy array
                 embeddings = out.t().cpu().numpy()
 
+                # previous mean pooling
+                # out = out.mean(1)
+                # embeddings = out.cpu().numpy()
+                
                 # Collect embeddings
                 embeddings_list.append(embeddings)
                 id_list.append(_id)
