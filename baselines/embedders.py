@@ -16,21 +16,17 @@ Embedders can be used as follows. Please check the individual classes for more d
 
 # Adapted from https://github.com/frederikkemarin/BEND/blob/main/bend/models/dnabert2_padding.py
 # Which was adapted from https://github.com/HazyResearch/flash-attention/blob/main/flash_attn/bert_padding.py
-# Which was adapted from https://github.com/mlcommons/training_results_v1.1/blob/main/NVIDIA/benchmarks/bert/implementations/pytorch/padding.py
+# Which was adapted from:
+# https://github.com/mlcommons/training_results_v1.1/blob/main/NVIDIA/benchmarks/bert/implementations/pytorch/padding.py
 
 
 import os
 import urllib
 from functools import partial
-from itertools import product
 from typing import Iterable, List
 
 import numpy as np
 import torch
-from sklearn.preprocessing import LabelEncoder
-from torch import nn
-from torchtext.vocab import build_vocab_from_iterator
-from torchtext.vocab import vocab as build_vocab_from_dict
 from tqdm.auto import tqdm
 from transformers import (
     AutoModel,
@@ -39,11 +35,9 @@ from transformers import (
     BertConfig,
     BertModel,
     BertTokenizer,
-    BigBirdModel,
     logging,
 )
 
-from barcodebert.datasets import KmerTokenizer
 from barcodebert.io import load_old_pretrained_model, load_pretrained_model
 
 from .models.dnabert2 import BertModel as DNABert2BertModel
@@ -103,12 +97,10 @@ class BaseEmbedder:
             The embedding of the sequence.
         """
         return self.embed([sequence], *args, disable_tqdm=True, **kwargs)[0]
-        return embeddings
 
 
-##
-## DNABert https://doi.org/10.1093/bioinformatics/btab083
-## Download from https://github.com/jerryji1993/DNABERT
+# DNABERT https://doi.org/10.1093/bioinformatics/btab083
+# Download from https://github.com/jerryji1993/DNABERT
 
 
 class DNABertEmbedder(BaseEmbedder):
@@ -121,7 +113,8 @@ class DNABertEmbedder(BaseEmbedder):
         ----------
         model_path : str
             The path to the model directory. Defaults to "../../external-models/DNABERT/".
-            The DNABERT models need to be downloaded manually as indicated in the DNABERT repository at https://github.com/jerryji1993/DNABERT.
+            The DNABERT models need to be downloaded manually as indicated in the DNABERT repository at:
+                https://github.com/jerryji1993/DNABERT.
         kmer : int
             The kmer size of the model. Defaults to 6.
 
@@ -133,7 +126,8 @@ class DNABertEmbedder(BaseEmbedder):
 
         if not os.path.exists(dnabert_path):
             print(
-                f"Path {dnabert_path} does not exists, check if the wrong path was given. If not download from https://github.com/jerryji1993/DNABERT"
+                f"Path {dnabert_path} does not exists, check if the wrong path was given. \
+                  If not download from https://github.com/jerryji1993/DNABERT"
             )
 
         config = BertConfig.from_pretrained(dnabert_path)
@@ -331,17 +325,16 @@ class NucleotideTransformerEmbedder(BaseEmbedder):
         """
 
         self.model.eval()
-        cls_tokens = []
         embeddings = []
 
         with torch.no_grad():
-            for n, s in enumerate(tqdm(sequences, disable=disable_tqdm)):
+            for _n, s in enumerate(tqdm(sequences, disable=disable_tqdm)):
                 # print('sequence', n)
                 s_chunks = [
                     s[chunk : chunk + self.max_seq_len] for chunk in range(0, len(s), self.max_seq_len)
                 ]  # split into chunks
                 embedded_seq = []
-                for n_chunk, chunk in enumerate(s_chunks):  # embed each chunk
+                for _n_chunk, chunk in enumerate(s_chunks):  # embed each chunk
                     tokens_ids = self.tokenizer(chunk, return_tensors="pt")["input_ids"].int().to(device)
                     if len(tokens_ids[0]) > self.max_tokens:  # too long to fit into the model
                         split = torch.split(tokens_ids, self.max_tokens, dim=-1)
@@ -369,7 +362,8 @@ class NucleotideTransformerEmbedder(BaseEmbedder):
                     if upsample_embeddings:
                         outs = self._repeat_embedding_vectors(self.tokenizer.convert_ids_to_tokens(tokens_ids[0]), outs)
                     embedded_seq.append(outs[:, 1:] if remove_special_tokens else outs)
-                    # print('chunk', n_chunk, 'chunk length', len(chunk), 'tokens length', len(tokens_ids[0]), 'chunk embedded shape', outs.shape)
+                    # print('chunk', n_chunk, 'chunk length', len(chunk), 'tokens length', len(tokens_ids[0]), ...
+                    # 'chunk embedded shape', outs.shape)
                 embeddings.append(np.concatenate(embedded_seq, axis=1))
 
         return embeddings
@@ -413,8 +407,10 @@ class HyenaDNAEmbedder(BaseEmbedder):
         ----------
         model_path : str, optional
             Path to the model checkpoint. Defaults to 'pretrained_models/hyenadna/hyenadna-tiny-1k-seqlen'.
-            If the path does not exist, the model will be downloaded from HuggingFace. Rather than just downloading the model,
-            HyenaDNA's `from_pretrained` method relies on cloning the HuggingFace-hosted repository, and using git lfs to download the model.
+            If the path does not exist, the model will be downloaded from HuggingFace. Rather than just
+            downloading the model,
+            HyenaDNA's `from_pretrained` method relies on cloning the HuggingFace-hosted repository,
+            and using git lfs to download the model.
             This requires git lfs to be installed on your system, and will fail if it is not.
 
 
@@ -433,9 +429,9 @@ class HyenaDNAEmbedder(BaseEmbedder):
         # all these settings are copied directly from huggingface.py
 
         # data settings:
-        use_padding = True
-        rc_aug = False  # reverse complement augmentation
-        add_eos = False  # add end of sentence token
+        # use_padding = True
+        # rc_aug = False  # reverse complement augmentation
+        # add_eos = False  # add end of sentence token
 
         # we need these for the decoder head, if using
         use_head = False
@@ -502,10 +498,6 @@ class HyenaDNAEmbedder(BaseEmbedder):
             List of embeddings.
         """
 
-        # # prep model and forward
-        # model.to(device)
-        #             with torch.inference_mode():
-
         embeddings = []
         with torch.inference_mode():
             for s in tqdm(sequences, disable=disable_tqdm):
@@ -513,9 +505,8 @@ class HyenaDNAEmbedder(BaseEmbedder):
                     s[chunk : chunk + self.max_length] for chunk in range(0, len(s), self.max_length)
                 ]  # split into chunks
                 embedded_chunks = []
-                for n_chunk, chunk in enumerate(chunks):
-                    #### Single embedding example ####
-
+                for _n_chunk, chunk in enumerate(chunks):
+                    # Single embedding example
                     # create a sample 450k long, prepare
                     # sequence = 'ACTG' * int(self.max_length/4)
                     tok_seq = self.tokenizer(chunk)  # adds CLS and SEP tokens
@@ -798,9 +789,7 @@ class BarcodeBERTEmbedder(BaseEmbedder):
     Embed using the DNABERTS model https://arxiv.org/abs/2402.08777
     """
 
-    def load_model(
-        self, checkpoint_path=None, from_paper=False, k_mer=8, n_heads=4, n_layers=4, new_vocab=False, **kwargs
-    ):
+    def load_model(self, checkpoint_path=None, from_paper=False, k_mer=8, n_heads=4, n_layers=4, **kwargs):
         """
         Load a pretrained model it can be downloaded or it can be from a checkpoint file.
 
@@ -823,7 +812,7 @@ class BarcodeBERTEmbedder(BaseEmbedder):
             if not from_paper:
                 model, ckpt = load_pretrained_model(checkpoint_path, device=device)
             else:
-                model = load_old_pretrained_model(checkpoint_path, config, device=device)
+                model = load_old_pretrained_model(checkpoint_path, k_mer, device=device)
 
         else:
             arch = f"{k_mer}_{n_heads}_{n_layers}"
@@ -848,15 +837,8 @@ class BarcodeBERTEmbedder(BaseEmbedder):
                 model = load_old_pretrained_model(checkpoint_path, k_mer, device=device)
 
             else:
-                print(f"Checkpoint PATH not provided, searching for model {arch} in checkpoint_pretraining/")
-                if os.path.exists(f"model_checkpoints/{arch}/checkpoint_pretraining.pt"):
-                    model, ckpt = load_pretrained_model(
-                        f"model_checkpoints/{arch}/checkpoint_pretraining.pt", device=device
-                    )
-                else:
-                    raise NotImplementedError(
-                        f"A new model checkpoint for {arch}.pt was not found. The automatic download is only available for published models"
-                    )
+                # Load the model
+                model = AutoModel.from_pretrained("bioscan-ml/BarcodeBERT", trust_remote_code=True)
 
         # Override the last layer
         # model.classifier = nn.Identity()
@@ -864,47 +846,6 @@ class BarcodeBERTEmbedder(BaseEmbedder):
         self.model.to(device)
 
         # tokenizer:
-        if new_vocab:
-            if not ckpt:
-                raise NotImplementedError(f"New vocab requires an updated checkpoint structure")
-            else:
-                # Vocabulary
-                base_pairs = "ACGT"
-                special_tokens = ["[MASK]", "[UNK]"]  # ["[MASK]", "[CLS]", "[SEP]", "[PAD]", "[EOS]", "[UNK]"]
-                UNK_TOKEN = "[UNK]"
-                k_mer = ckpt["config"].k_mer
-                tokenize_n_nucleotide = False  # ckpt['config'].tokenize_n_nucleotide:
-
-                if tokenize_n_nucleotide:
-                    # Encode kmers which contain N differently depending on where it is
-                    base_pairs += "N"
-                kmers = ["".join(kmer) for kmer in product(base_pairs, repeat=k_mer)]
-
-                # Separate between good (idx < 4**k) and bad k-mers (idx > 4**k) for prediction
-                if tokenize_n_nucleotide:
-                    prediction_kmers = []
-                    other_kmers = []
-                    for kmer in kmers:
-                        if "N" in kmer:
-                            other_kmers.append(kmer)
-                        else:
-                            prediction_kmers.append(kmer)
-
-                    kmers = prediction_kmers + other_kmers
-
-                kmer_dict = dict.fromkeys(kmers, 1)
-                vocab = build_vocab_from_dict(kmer_dict, specials=special_tokens)
-                vocab.set_default_index(vocab[UNK_TOKEN])
-                vocab_size = len(vocab)
-                self.tokenizer = KmerTokenizer(k_mer, vocab, stride=ckpt["config"].stride, padding=True, max_len=660)
-
-        else:
-            kmer_iter = (["".join(kmer)] for kmer in product("ACGT", repeat=k_mer))
-            if from_paper:
-                vocab = build_vocab_from_iterator(kmer_iter, specials=["<MASK>", "<CLS>", "<UNK>"])
-            else:
-                vocab = build_vocab_from_iterator(kmer_iter, specials=["<MASK>", "<UNK>"])
-            vocab.set_default_index(vocab["<UNK>"])  # <UNK> is necessary in the hard case
-
-            tokenizer = KmerTokenizer(k_mer, vocab, stride=k_mer, padding=True, max_len=660)
-            self.tokenizer = tokenizer
+        # Load the tokenizer
+        tokenizer = AutoTokenizer.from_pretrained("bioscan-ml/BarcodeBERT", trust_remote_code=True)
+        self.tokenizer = tokenizer

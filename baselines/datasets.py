@@ -4,19 +4,24 @@ Datasets.
 
 import os
 import pickle
-from itertools import product
 
 import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
-from torchtext.vocab import build_vocab_from_iterator
 from tqdm.auto import tqdm
-from transformers import AutoTokenizer
 
 
 class DNADataset(Dataset):
-    def __init__(self, file_path, embedder, randomize_offset=False, max_length=660, dataset_format="CANADA-1.5M", target="species"):
+    def __init__(
+        self,
+        file_path,
+        embedder,
+        randomize_offset=False,
+        max_length=660,
+        dataset_format="CANADA-1.5M",
+        target="species",
+    ):
         self.randomize_offset = randomize_offset
 
         df = pd.read_csv(file_path, sep="\t" if file_path.endswith(".tsv") else ",")
@@ -29,17 +34,21 @@ class DNADataset(Dataset):
         self.target = target
 
         if dataset_format == "CANADA-1.5M":
-            self.labels, self.label_set = pd.factorize(df["species_name"], sort=True)
+            # self.labels, self.label_set = pd.factorize(df["species_name"], sort=True)
             if target not in ["processid", "bin_uri"]:
-                target += '_name'
-            self.ids = df[target].to_list()  # ideally, this should be process id
+                target += "_name"
+                self.labels, self.label_set = pd.factorize(df[target], sort=True)
+            else:
+                self.labels = df[target].to_list()
+                self.label_set = set(self.labels)
+
             self.num_labels = len(self.label_set)
         else:
             self.num_labels = 22_622
-            #self.ids = df["species_index"].to_list()  # ideally, this should be process id
+            # self.ids = df["species_index"].to_list()  # ideally, this should be process id
             if target not in ["processid", "dna_bin"]:
-                target += '_index'
-            self.ids = df[target].to_list() 
+                target += "_index"
+            self.ids = df[target].to_list()
             self.labels = self.ids
 
     def __len__(self):
@@ -53,10 +62,16 @@ class DNADataset(Dataset):
 
         x = self.barcodes[idx]
         if len(x) > self.max_len:
-            x = x[: self.max_len]  # Truncate, but do not force the max_len, let the model tokenize handle it.
+            x = x[
+                offset : self.max_len + offset
+            ]  # Truncate, but do not force the max_len, let the model tokenize handle it.
 
         if self.backbone_name == "BarcodeBERT":
-            processed_barcode, att_mask = self.tokenizer(x, offset=offset)
+            encoding_info = self.tokenizer(x, return_tensors="pt", padding=True)
+
+            processed_barcode = encoding_info["input_ids"]
+            # print(processed_barcode.shape)
+            att_mask = encoding_info["attention_mask"]
 
         elif self.backbone_name == "Hyena_DNA":
             encoding_info = self.tokenizer(
@@ -122,8 +137,8 @@ def representations_from_df(
     batch_size=128,
     save_embeddings=True,
     dataset="BIOSCAN-5M",
-    embeddings_folder="/scratch/ssd004/scratch/pmillana/embeddings/embeddings",
-    target='species'
+    embeddings_folder="embeddings/",
+    target="species",
 ):
 
     # create embeddings folder
@@ -150,17 +165,22 @@ def representations_from_df(
 
     if os.path.exists(out_fname):
         print(f"We found the file {out_fname}. It seems that we have computed the embeddings ... \n")
-        print(f"Loading the embeddings from that file")
+        print("Loading the embeddings from that file")
 
         with open(out_fname, "rb") as handle:
             embeddings = pickle.load(handle)
 
-        return embeddings["data"]
+        return embeddings
 
     else:
 
         dataset_val = DNADataset(
-            file_path=filename, embedder=embedder, randomize_offset=False, max_length=660, dataset_format=dataset, target=target
+            file_path=filename,
+            embedder=embedder,
+            randomize_offset=False,
+            max_length=660,
+            dataset_format=dataset,
+            target=target,
         )
 
         dl_val_kwargs = {
@@ -175,7 +195,7 @@ def representations_from_df(
         embeddings_list = []
         id_list = []
         with torch.no_grad():
-            for batch_idx, (sequences, _id, att_mask) in tqdm(enumerate(dataloader_val)):
+            for _batch_idx, (sequences, _id, att_mask) in tqdm(enumerate(dataloader_val)):
                 sequences = sequences.view(-1, sequences.shape[-1]).to(device)
                 att_mask = att_mask.view(-1, att_mask.shape[-1]).to(device)
                 # print(sequences.shape)
@@ -185,7 +205,9 @@ def representations_from_df(
 
                 # call each model's wrapper
                 if backbone == "NT":
-                    out = embedder.model(sequences, output_hidden_states=True, attention_mask=att_mask)["hidden_states"][-1]
+                    out = embedder.model(sequences, output_hidden_states=True, attention_mask=att_mask)[
+                        "hidden_states"
+                    ][-1]
 
                 elif backbone == "Hyena_DNA":
                     out = embedder.model(sequences)
@@ -218,7 +240,7 @@ def representations_from_df(
                 # previous mean pooling
                 # out = out.mean(1)
                 # embeddings = out.cpu().numpy()
-                
+
                 # Collect embeddings
                 embeddings_list.append(embeddings)
                 id_list.append(_id)
@@ -234,7 +256,7 @@ def representations_from_df(
         with open(out_fname, "wb") as handle:
             pickle.dump(save_embeddings, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-        return save_embeddings["data"]
+        return save_embeddings
 
 
 def labels_from_df(filename, target_level, label_pipeline):
