@@ -7,10 +7,12 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-train = pd.read_csv("data/supervised_train.csv", sep=None)
-test = pd.read_csv("data/supervised_test.csv", sep=None)
 
-target_level = "species_index"
+data_folder = "/h/pmillana/projects/BarcodeBERT_soft_penalty/data"
+train = pd.read_csv(f"{data_folder}/supervised_train.csv")
+test = pd.read_csv(f"{data_folder}/supervised_test.csv")
+
+target_level = "species_name"
 
 device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
 

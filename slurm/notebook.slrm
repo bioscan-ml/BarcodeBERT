@@ -3,7 +3,7 @@
 #SBATCH --nodes=1                   # Number of nodes to request. Usually use 1 for interactive jobs.
 #SBATCH --tasks-per-node=1          # Number of processes to spawn per node. Should always be set to 1, regardless of number of GPUs!
 #SBATCH --gres=gpu:1                # Number of GPUs per node to request
-#SBATCH --cpus-per-gpu=4            # Number of CPUs to request per GPU (soft maximum of 4 per GPU requested)
+#SBATCH --cpus-per-gpu=10            # Number of CPUs to request per GPU (soft maximum of 4 per GPU requested)
 #SBATCH --mem-per-gpu=10G           # RAM per GPU
 #SBATCH --time=16:00:00             # You must specify a maximum run-time if you want to run for more than 2h
 #SBATCH --output=jnb_%j.out         # You'll need to inspect this log file to find out how to connect to the notebook
@@ -12,7 +12,7 @@
 
 # Manually define the project name.
 # This should also be the name of your conda environment used for this project.
-PROJECT_NAME="barcodebert"
+PROJECT_NAME="hyenadna"
 
 # Exit if any command hits an error
 set -e

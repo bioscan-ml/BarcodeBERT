@@ -108,7 +108,7 @@ class DNADataset(Dataset):
             # print(processed_barcode.shape)
             att_mask = encoding_info["attention_mask"]
 
-        if target not in ["processid", "bin_uri", "dna_bin"]:
+        if self.target not in ["processid", "bin_uri", "dna_bin"]:
             label = torch.tensor(self.labels[idx], dtype=torch.int64)
         else:
             label = self.labels[idx]
