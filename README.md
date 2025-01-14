@@ -1,20 +1,37 @@
 # BarcodeBERT
 
-A pre-trained transformer model for inference on insect DNA barcoding data. 
-
+A pre-trained transformer model for inference on insect DNA barcoding data.  
 <p align="center">
-  <img src ="Figures/Arch.png" alt="drawing" width="500"/>
+  <img src ="Figures/Arch.jpg" alt="drawing" width="500"/>
 </p>
 
-* Check out our [paper](https://arxiv.org/abs/2311.02401)
-* Check out our [poster](https://vault.cs.uwaterloo.ca/s/iixEfyeXMt8g3pi)
+Check out our [paper](https://arxiv.org/abs/2311.02401)
 
-#### Model weights
+### Using the model
 
-[4-mers](https://vault.cs.uwaterloo.ca/s/5XdqgegTC6xe2yQ)  
-[5-mers](https://vault.cs.uwaterloo.ca/s/Cb6yzBpPdHQzjzg)  
-[6-mers](https://vault.cs.uwaterloo.ca/s/GCfZdeZEDCcdSNf)  
+```python
+from transformers import AutoTokenizer, AutoModel
 
+# Load the tokenizer
+tokenizer = AutoTokenizer.from_pretrained(
+    "bioscan-ml/BarcodeBERT", trust_remote_code=True
+)
+
+# Load the model
+model = AutoModel.from_pretrained("bioscan-ml/BarcodeBERT", trust_remote_code=True)
+
+# Sample sequence
+dna_seq = "ACGCGCTGACGCATCAGCATACGA"
+
+# Tokenize
+input_seq = tokenizer(dna_seq, return_tensors="pt")["input_ids"]
+
+# Pass through the model
+output = model(input_seq)["hidden_states"][-1]
+
+# Compute Global Average Pooling
+features = output.mean(1)
+```
 
 ### Reproducing the results from the paper
 
@@ -32,66 +49,35 @@ rm -r new_data
 rm data.zip
 ```
 
-##### CNN model
-Training: 
-```
-cd scripts/CNN/
-python 1D_CNN_supervised.py
+3. Pretrain BarcodeBERT
+
+```bash
+python barcodebert/pretraining.py --dataset=CANADA-1.5M --k_mer=4 --n_layers=4 --n_heads=4 --data_dir=data/ --checkpoint=model_checkpoints/CANADA-1.5M/4_4_4/checkpoint_pretraining.pt
 ```
 
-Evaluation:
+4. Baseline model pipelines: The desired backbone can be selected using one of the following keywords:  
+`BarcodeBERT, NT, Hyena_DNA, DNABERT, DNABERT-2, DNABERT-S`
+```bash
+python baselines/knn_probing.py --backbone=<DESIRED-BACKBONE>  --data-dir=data/
+python baselines/linear_probing.py --backbone=<DESIRED-BACKBONE>  --data-dir=data/
+python baselines/finetuning.py --backbone=<DESIRED-BACKBONE> --data-dir=data/ --batch_size=32
 ```
-python 1D_CNN_genus.py
-python 1D_CNN_Linear_probing.py
-```
+**Note**: HyenaDNA has to be downloaded using `git-lfs`. If that is not available to you, you may download the `/hyenadna-tiny-1k-seqlen/` checkpoint directly from [Hugging face](https://huggingface.co/LongSafari/hyenadna-tiny-1k-seqlen/tree/main). The keyword `BarcodeBERT` is also available as a baseline but this will download the publicly available model as presented in our workshop paper.
 
-##### BarcodeBERT
+5. BLAST
+```shell
+cd data/
+python to_fasta.py --input_file=supervised_train.csv &&
+python to_fasta.py --input_file=supervised_test.csv &&
+python to_fasta.py --input_file=unseen.csv
 
-Model Pretraining:
-```
-cd scripts/BarcodeBERT/
-python MGPU_MLM_train.py --input_path=../../data/pre_training.tsv --k_mer=4 --stride=4
-python MGPU_MLM_train.py --input_path=../../data/pre_training.tsv --k_mer=5 --stride=5
-python MGPU_MLM_train.py --input_path=../../data/pre_training.tsv --k_mer=6 --stride=6
-```
-
-Evaluation:
-```
-python MLM_genus_test.py 4
-python MLM_genus_test.py 5
-python MLM_genus_test.py 6
-
-python Linear_probing.py 4
-python Linear_probing.py 5
-python Linear_probing.py 6
-```
-
-Model Fine-tuning
-To fine-tune the model, you need a folder with three files: "train," "test," and "dev." Each file should have two columns, one called "sequence" and the other called "label." You also need to specify the path to the pre-trained model you want to use for fine-tuning, using "pretrained_checkpoint_path".
-```
-python Fine-tuning.py --input_path=path_to_the_input_folder --Pretrained_checkpoint_path path_to_the_pretrained_model --k_mer=4 --stride=4
-python Fine_tuning.py --input_path=path_to_the_input_folder --Pretrained_checkpoint_path path_to_the_pretrained_model --k_mer=5 --stride=5
-python Fine_tuning.py --input_path=path_to_the_input_folder --Pretrained_checkpoint_path path_to_the_pretrained_model --k_mer=6 --stride=6
+makeblastdb -in supervised_train.fas -title train -dbtype nucl -out train.fas
+blastn -query supervised_test.fas -db train.fas -out results_supervised_test.tsv -outfmt 6 -num_threads 16
+blastn -query unseen.fas -db train.fas -out results_unseen.tsv -outfmt 6 -num_threads 16
 ```
 
 
-##### DNABERT
-To fine-tune the model on our data, you first need to follow the instructions in the [DNABERT repository](https://github.com/jerryji1993/DNABERT) original repository to donwnload the model weights. Place them in the `dnabert` folder and then run the following:
-
-```
-cd scripts/DNABERT/
-python supervised_learning.py --input_path=../../data -k 4 --model dnabert --checkpoint dnabert/4-new-12w-0
-python supervised_learning.py --input_path=../../data -k 6 --model dnabert --checkpoint dnabert/6-new-12w-0
-python supervised_learning.py --input_path=../../data -k 5 --model dnabert --checkpoint dnabert/5-new-12w-0
-```
-
-
-###### DNABERT-2
-
-To fine-tune the model on our dataset, you need to follow the instructions in [DNABERT2 repository](https://github.com/Zhihan1996/DNABERT_2) for fine-tuning the model on new dataset. You can use the same input path that is used for fine-tuning BarcodeBERT as the input path to DNABERT2. 
-
-
-## Citation 
+## Citation
 
 If you find BarcodeBERT useful in your research please consider citing:
 
@@ -116,43 +102,3 @@ If you find BarcodeBERT useful in your research please consider citing:
       primaryClass={cs.LG},
       doi={10.48550/arxiv.2311.02401},
     }
-
-
-
-
-<!--- 
-
-### Using BarcodeBERT as feature extractor in your own biodiversity analysis:
-
-0. Clone this repository and install the required libraries
-
-1. Download the pre-trained weights
-
-2. Produce the features
-**Note**: The model is ready to be used on data directly downloaded from BOLD. To use the model on your own data, please format the .tsv input file accordingly. 
-
-
-### Fine-Tuning BarcodeBERT using your own data
-
-0. Clone this repository and install the required libraries
-
-1. Download the pre-trained weights
-
-2. Fine-Tune the model
-**Note**: The model is ready to be used on data directly downloaded from BOLD. To use the model on your own data, please format the .tsv input file accordingly. 
-
-3. Test the fine-tuned model on the test dataset.
-
-
-
-
-
-
-0. Download the [data](https://vault.cs.uwaterloo.ca/s/YojSrfn7n2iLfa9)
-1. Make sure you have all the required libraries before running (remove the --no-index flags if you are not training on CC)
-
-```
-pip install -r requirements.txt
-```
-
---!>
