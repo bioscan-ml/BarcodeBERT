@@ -3,6 +3,7 @@
 import builtins
 import copy
 import os
+import shutil
 import sys
 import time
 from socket import gethostname
