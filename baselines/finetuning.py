@@ -55,7 +55,7 @@ class ClassificationModel(nn.Module):
             out = self.base_model(sequences, attention_mask=mask)[0]
 
         elif self.backbone == "BarcodeBERT":
-            out = self.base_model(sequences, att_mask).hidden_states[-1]
+            out = self.base_model(sequences, mask).hidden_states[-1]
 
         # if backbone != "BarcodeBERT":
         # print(out.shape)
