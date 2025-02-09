@@ -88,12 +88,12 @@ If you find BarcodeBERT useful in your research please consider citing:
         and Monireh Safari
         and ZeMing Gong
         and Austin T. Wang
-        and Scott C. Lowe
         and Joakim Bruslund Haurum
         and Iuliia Zarubiieva
         and Dirk Steinke
         and Lila Kari
         and Angel X. Chang
+        and Scott C. Lowe
         and Graham W. Taylor
       },
       year={2023},
