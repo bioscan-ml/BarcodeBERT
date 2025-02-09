@@ -121,17 +121,17 @@ def split_df(filename):
 
     # Number of repeated species from "test" split in pretrain split
     intersection_records = set(train_species).intersection(set(test_species))
-    print(f"There are { len(intersection_records)} repeated species from test split in train split")
+    print(f"There are {len(intersection_records)} repeated species from test split in train split")
     print()
 
     # Number of repeated species from "unseen" split in "train" split
     intersection_records = set(train_species).intersection(set(unseen_species))
-    print(f"There are { len(intersection_records)} repeated species from unseen split in train split")
+    print(f"There are {len(intersection_records)} repeated species from unseen split in train split")
     print()
 
     # Number of repeated species from "unseen" split in "pretrain" split
     intersection_records = set(pretrain_species).intersection(set(unseen_species))
-    print(f"There are { len(intersection_records)} repeated species from unseen split in pretrain split")
+    print(f"There are {len(intersection_records)} repeated species from unseen split in pretrain split")
     print()
 
     # Get unique genera
