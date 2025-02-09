@@ -7,7 +7,6 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-
 data_folder = "/h/pmillana/projects/BarcodeBERT_soft_penalty/data"
 train = pd.read_csv(f"{data_folder}/supervised_train.csv")
 test = pd.read_csv(f"{data_folder}/supervised_test.csv")
