@@ -81,24 +81,26 @@ blastn -query unseen.fas -db train.fas -out results_unseen.tsv -outfmt 6 -num_th
 
 If you find BarcodeBERT useful in your research please consider citing:
 
-    @misc{arias2023barcodebert,
-      title={{BarcodeBERT}: Transformers for Biodiversity Analysis},
-      author={Pablo Millan Arias
-        and Niousha Sadjadi
-        and Monireh Safari
-        and ZeMing Gong
-        and Austin T. Wang
-        and Joakim Bruslund Haurum
-        and Iuliia Zarubiieva
-        and Dirk Steinke
-        and Lila Kari
-        and Angel X. Chang
-        and Scott C. Lowe
-        and Graham W. Taylor
-      },
-      year={2023},
-      eprint={2311.02401},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      doi={10.48550/arxiv.2311.02401},
-    }
+```bibtex
+@misc{arias2023barcodebert,
+  title={{BarcodeBERT}: Transformers for Biodiversity Analysis},
+  author={Pablo Millan Arias
+    and Niousha Sadjadi
+    and Monireh Safari
+    and ZeMing Gong
+    and Austin T. Wang
+    and Joakim Bruslund Haurum
+    and Iuliia Zarubiieva
+    and Dirk Steinke
+    and Lila Kari
+    and Angel X. Chang
+    and Scott C. Lowe
+    and Graham W. Taylor
+  },
+  year={2023},
+  eprint={2311.02401},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  doi={10.48550/arxiv.2311.02401},
+}
+```
