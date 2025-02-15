@@ -40,7 +40,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-dev = ["black==25.1.0", "pre-commit"]
+dev = ["black==25.1.0", "pre-commit>=3.2.0"]
 
 [project.urls]
 Homepage = "https://github.com/Kari-Genomics-Lab/BarcodeBERT"
