@@ -92,7 +92,7 @@ def run(config):
     if config.distributed and not use_cuda:
         raise EnvironmentError("Distributed training with NCCL requires CUDA.")
     if not use_cuda:
-        device = torch.device("cpu")
+        raise EnvironmentError("Pretraining requires CUDA.")
     elif config.local_rank is not None:
         device = f"cuda:{config.local_rank}"
     else:
