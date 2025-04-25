@@ -27,7 +27,7 @@ dna_seq = "ACGCGCTGACGCATCAGCATACGA"
 input_seq = tokenizer(dna_seq, return_tensors="pt")["input_ids"]
 
 # Pass through the model
-output = model(input_seq)["hidden_states"][-1]
+output = model(input_seq.unsqueeze(0))["hidden_states"][-1]
 
 # Compute Global Average Pooling
 features = output.mean(1)
