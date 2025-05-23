@@ -80,6 +80,7 @@ class ClassificationModel(nn.Module):
             loss = F.cross_entropy(logits.view(-1, self.num_labels), labels.view(-1))
         return TokenClassifierOutput(loss=loss, logits=logits)
 
+
 def evaluate(
     dataloader,
     model,
@@ -172,6 +173,7 @@ def evaluate(
 
     return results
 
+
 def run(config):
     r"""
     Run evaluation job (one worker if using distributed training).
@@ -259,7 +261,6 @@ def run(config):
     # Map model parameters to be load to the specified gpu.
     embedder = load_baseline_model(config.backbone)
     embedder.name = config.backbone
-    
 
     # DATASET =================================================================
 
@@ -271,14 +272,14 @@ def run(config):
         config.stride = config.k_mer
 
     dataset_train = DNADataset(
-        file_path=os.path.join("/home/pmillana/projects/def-lila-ab/pmillana/data_BIOSCAN/CANADA_1.5M", "supervised_train.csv"),
+        file_path=os.path.join(config.data_dir, "supervised_train.csv"),
         embedder=embedder,
         randomize_offset=False,
         dataset_format="CANADA-1.5M",
     )
 
     dataset_test = DNADataset(
-        file_path=os.path.join("/home/pmillana/projects/def-lila-ab/pmillana/data_BIOSCAN/CANADA_1.5M", "supervised_test.csv"),
+        file_path=os.path.join(config.data_dir, "supervised_test.csv"),
         embedder=embedder,
         randomize_offset=False,
         dataset_format="CANADA-1.5M",
@@ -315,10 +316,8 @@ def run(config):
         dl_test_kwargs["sampler"] = DistributedSampler(dataset_test, shuffle=False, drop_last=False)
         dl_test_kwargs["shuffle"] = None
 
-
     dataloader_test = torch.utils.data.DataLoader(dataset_test, **dl_test_kwargs)
 
-    
     # MODEL ===================================================================
     model = ClassificationModel(embedder, dataset_train.num_labels)
 
@@ -376,7 +375,6 @@ def run(config):
 
     # Ensure modules are on the correct device
     model = model.to(device)
-
 
     # TEST ====================================================================
     print(f"\nEvaluating final model (epoch {config.epochs}) performance")
@@ -462,6 +460,19 @@ def get_parser():
         type=str,
         help="Dataset format %(default)s",
     )
+
+    group.add_argument(
+        "--data_folder",
+        "--data_dir",
+        "--data-dir",
+        "--dataset-dir",
+        "--dataset_dir",
+        dest="data_dir",
+        default="/data",
+        type=str,
+        help="Location of your data",
+    )
+
     return parser
 
 
