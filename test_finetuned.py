@@ -461,18 +461,6 @@ def get_parser():
         help="Dataset format %(default)s",
     )
 
-    group.add_argument(
-        "--data_folder",
-        "--data_dir",
-        "--data-dir",
-        "--dataset-dir",
-        "--dataset_dir",
-        dest="data_dir",
-        default="/data",
-        type=str,
-        help="Location of your data",
-    )
-
     return parser
 
 
