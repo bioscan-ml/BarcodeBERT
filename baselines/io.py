@@ -44,12 +44,12 @@ def load_baseline_model(backbone_name, *args, **kwargs):
     checkpoints = {
         "NT": (["InstaDeepAI/nucleotide-transformer-v2-50m-multi-species"], kwargs),
         "Hyena_DNA": (
-            ["/home/pmillana/projects/def-lila-ab/pmillana/BarcodeBERT/pretrained_models/hyenadna-tiny-1k-seqlen"],
+            ["pretrained_models/hyenadna-tiny-1k-seqlen"],
             kwargs,
         ),
         "DNABERT-2": (["zhihan1996/DNABERT-2-117M"], kwargs),
         "DNABERT-S": (["zhihan1996/DNABERT-S"], kwargs),
-        "DNABERT": (["/scratch/ssd004/scratch/pmillana/checkpoints/dnabert/6-new-12w-0"], kwargs),
+        "DNABERT": (["pretrained_models/6-new-12w-0"], kwargs),
         "BarcodeBERT": ([], kwargs),
     }
 

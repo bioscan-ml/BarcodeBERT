@@ -2,6 +2,7 @@
 
 import builtins
 import copy
+import json
 import os
 import shutil
 import time
@@ -159,6 +160,19 @@ def evaluate(
     results["f1-micro"] = 100.0 * sklearn.metrics.f1_score(y_true, y_pred, average="micro")
     results["f1-macro"] = 100.0 * sklearn.metrics.f1_score(y_true, y_pred, average="macro")
     results["f1-support"] = 100.0 * sklearn.metrics.f1_score(y_true, y_pred, average="weighted")
+
+    # Let's take a look at the miscalssified samples
+    # Identify misclassified instances
+    misclassified_indices = np.where(y_pred != y_true)[0]
+
+    print(misclassified_indices)
+
+    # Extract misclassified samples
+    true_labels_for_misclassified = dataloader.dataset.label_set[y_true[misclassified_indices]]
+    predicted_labels_for_misclassified = dataloader.dataset.label_set[y_pred[misclassified_indices]]
+
+    print(true_labels_for_misclassified, predicted_labels_for_misclassified)
+
     # Could expand to other metrics too
 
     if verbosity >= 1:
@@ -171,6 +185,7 @@ def evaluate(
             else:
                 print(f"  {k + ' ':.<24s} {v:6.2f} %")
 
+    results["indices"] = misclassified_indices
     return results
 
 
@@ -388,6 +403,9 @@ def run(config):
         is_distributed=config.distributed,
     )
     print(eval_stats)
+
+    with open("misclassifications.json", "a") as f:
+        json.dump({config.backbone: eval_stats["indices"].tolist()}, f)
 
 
 def get_parser():
