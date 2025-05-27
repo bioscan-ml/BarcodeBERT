@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import time
+from collections import OrderedDict
 from datetime import datetime
 from socket import gethostname
 
@@ -375,12 +376,37 @@ def run(config):
         print(f"Loading state from checkpoint (epoch {checkpoint['epoch']})")
         total_step = checkpoint["total_step"]
         n_samples_seen = checkpoint["n_samples_seen"]
-        model.module.load_state_dict(checkpoint["model"])
         best_stats["max_accuracy"] = checkpoint.get("max_accuracy", 0)
         best_stats["best_epoch"] = checkpoint.get("best_epoch", 0)
 
         print(f"Total samples seen: {n_samples_seen}")
         print(f"Best stats : {best_stats}")
+
+
+        # We need to check if the model  was wrapped in DDP
+        raw_state = checkpoint["model"]
+
+        # Detect “module.” prefix in checkpoint keys
+        ckpt_keys = list(raw_state.keys())
+        ckpt_has_module = any(k.startswith("module.") for k in ckpt_keys)
+        
+
+        # Build a renamed state‐dict matching your model
+        new_state = OrderedDict()
+        for k, v in raw_state.items():
+            if ckpt_has_module and not isinstance(model, nn.parallel.DistributedDataParallel):
+                # checkpoint has “module.” but model is not wrapped, then strip it
+                name = k[len("module."):]
+            elif not ckpt_has_module and isinstance(model, nn.parallel.DistributedDataParallel):
+                # checkpoint has NO “module.” but model is wrapped, then add it
+                name = "module." + k
+            else:
+                # keys already match
+                name = k
+            new_state[name] = v
+
+        # 5) Load
+        model.load_state_dict(new_state)
 
     print()
     print("Configuration:")
