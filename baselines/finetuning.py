@@ -3,6 +3,7 @@
 import builtins
 import copy
 import os
+import shutil
 import sys
 import time
 from socket import gethostname
@@ -54,7 +55,7 @@ class ClassificationModel(nn.Module):
             out = self.base_model(sequences, attention_mask=mask)[0]
 
         elif self.backbone == "BarcodeBERT":
-            out = self.base_model(sequences, att_mask).hidden_states[-1]
+            out = self.base_model(sequences, mask).hidden_states[-1]
 
         # if backbone != "BarcodeBERT":
         # print(out.shape)
@@ -564,6 +565,7 @@ def run(config):
             n_epoch=config.epochs,
             total_step=total_step,
             n_samples_seen=n_samples_seen,
+            use_cuda=use_cuda,
         )
         t_end_train = time.time()
 
@@ -750,6 +752,7 @@ def train_one_epoch(
     n_epoch=None,
     total_step=0,
     n_samples_seen=0,
+    use_cuda=True,
 ):
     r"""
     Train the encoder and classifier for one epoch.
@@ -819,8 +822,9 @@ def train_one_epoch(
         # Forward pass --------------------------------------------------------
         t_start_forward = time.time()
         # N.B. To accurately time steps on GPU we need to use torch.cuda.Event
-        ct_forward = torch.cuda.Event(enable_timing=True)
-        ct_forward.record()
+        if use_cuda:
+            ct_forward = torch.cuda.Event(enable_timing=True)
+            ct_forward.record()
         # Perform the forward pass through the model
         out = model(sequences, labels=y_true, mask=att_mask)
         loss = out.loss
@@ -829,14 +833,16 @@ def train_one_epoch(
         # Reset gradients
         optimizer.zero_grad()
         # Now the backward pass
-        ct_backward = torch.cuda.Event(enable_timing=True)
-        ct_backward.record()
+        if use_cuda:
+            ct_backward = torch.cuda.Event(enable_timing=True)
+            ct_backward.record()
         loss.backward()
 
         # Update --------------------------------------------------------------
         # Use our optimizer to update the model parameters
-        ct_optimizer = torch.cuda.Event(enable_timing=True)
-        ct_optimizer.record()
+        if use_cuda:
+            ct_optimizer = torch.cuda.Event(enable_timing=True)
+            ct_optimizer.record()
         optimizer.step()
 
         # Step the scheduler each batch
@@ -850,8 +856,9 @@ def train_one_epoch(
         # Logging -------------------------------------------------------------
         # Log details about training progress
         t_start_logging = time.time()
-        ct_logging = torch.cuda.Event(enable_timing=True)
-        ct_logging.record()
+        if use_cuda:
+            ct_logging = torch.cuda.Event(enable_timing=True)
+            ct_logging.record()
 
         # Update the total loss for the epoch
         loss_batch = loss.clone()
@@ -929,7 +936,8 @@ def train_one_epoch(
                 grp_lr = optimizer.param_groups[lr_idx]["lr"]
                 log_dict[f"Training/stepwise/lr{grp_name}"] = grp_lr
             # Synchronize ensures everything has finished running on each GPU
-            torch.cuda.synchronize()
+            if use_cuda:
+                torch.cuda.synchronize()
             # Record how long it took to do each step in the pipeline
             if t_start_wandb is not None:
                 # Record how long it took to send to wandb last time

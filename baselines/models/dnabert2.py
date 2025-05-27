@@ -19,7 +19,13 @@ from transformers.activations import ACT2FN
 from transformers.modeling_outputs import MaskedLMOutput, SequenceClassifierOutput
 from transformers.models.bert.modeling_bert import BertPreTrainedModel
 
-from .dnabert2_padding import index_first_axis, index_put_first_axis, pad_input, unpad_input, unpad_input_only
+from .dnabert2_padding import (
+    index_first_axis,
+    index_put_first_axis,
+    pad_input,
+    unpad_input,
+    unpad_input_only,
+)
 
 try:
     from .flash_attn_triton import flash_attn_qkvpacked_func
