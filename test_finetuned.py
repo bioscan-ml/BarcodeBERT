@@ -54,7 +54,7 @@ class ClassificationModel(nn.Module):
             out = self.base_model(sequences, attention_mask=mask)[0]
 
         elif self.backbone == "BarcodeBERT":
-            out = self.base_model(sequences, att_mask).hidden_states[-1]
+            out = self.base_model(sequences, mask).hidden_states[-1]
 
         # if backbone != "BarcodeBERT":
         # print(out.shape)
@@ -382,21 +382,19 @@ def run(config):
         print(f"Total samples seen: {n_samples_seen}")
         print(f"Best stats : {best_stats}")
 
-
         # We need to check if the model  was wrapped in DDP
         raw_state = checkpoint["model"]
 
         # Detect “module.” prefix in checkpoint keys
         ckpt_keys = list(raw_state.keys())
         ckpt_has_module = any(k.startswith("module.") for k in ckpt_keys)
-        
 
         # Build a renamed state‐dict matching your model
         new_state = OrderedDict()
         for k, v in raw_state.items():
             if ckpt_has_module and not isinstance(model, nn.parallel.DistributedDataParallel):
                 # checkpoint has “module.” but model is not wrapped, then strip it
-                name = k[len("module."):]
+                name = k[len("module.") :]
             elif not ckpt_has_module and isinstance(model, nn.parallel.DistributedDataParallel):
                 # checkpoint has NO “module.” but model is wrapped, then add it
                 name = "module." + k

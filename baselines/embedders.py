@@ -841,7 +841,7 @@ class BarcodeBERTEmbedder(BaseEmbedder):
                 model = AutoModel.from_pretrained("bioscan-ml/BarcodeBERT", trust_remote_code=True)
 
         # Override the last layer
-        # model.classifier = nn.Identity()
+        # model.classifier =torch.nn.Identity()
         self.model = model
         self.model.to(device)
 
