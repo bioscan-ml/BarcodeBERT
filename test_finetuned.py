@@ -22,7 +22,7 @@ from transformers.modeling_outputs import TokenClassifierOutput
 
 from barcodebert import utils
 from baselines.datasets import DNADataset
-from baselines.io import load_baseline_model
+from baselines.io import load_baseline_model, save_results_csv
 
 BASE_BATCH_SIZE = 64
 
@@ -161,6 +161,9 @@ def evaluate(
     results["f1-micro"] = 100.0 * sklearn.metrics.f1_score(y_true, y_pred, average="micro")
     results["f1-macro"] = 100.0 * sklearn.metrics.f1_score(y_true, y_pred, average="macro")
     results["f1-support"] = 100.0 * sklearn.metrics.f1_score(y_true, y_pred, average="weighted")
+    results["precision-micro"] = 100.0 * sklearn.metrics.precision_score(y_true, y_pred, average="micro")
+    results["precision-macro"] = 100.0 * sklearn.metrics.precision_score(y_true, y_pred, average="macro")
+    results["precision-support"] = 100.0 * sklearn.metrics.precision_score(y_true, y_pred, average="weighted")
 
     # Let's take a look at the miscalssified samples
     # Identify misclassified instances
@@ -188,7 +191,6 @@ def evaluate(
 
     results["indices"] = misclassified_indices
     return results
-
 
 def run(config):
     r"""
@@ -428,8 +430,10 @@ def run(config):
     )
     print(eval_stats)
 
-    with open("misclassifications.json", "a") as f:
-        json.dump({config.backbone: eval_stats["indices"].tolist()}, f)
+    save_results_csv(eval_stats, config.backbone, "fine_tuning")
+
+    #with open("misclassifications.json", "a") as f:
+    #    json.dump({config.backbone: eval_stats["indices"].tolist()}, f)
 
 
 def get_parser():

@@ -2,6 +2,8 @@
 Input/output utilities.
 """
 
+import os
+import pandas as pd
 import torch
 
 from baselines.embedders import (
@@ -55,3 +57,15 @@ def load_baseline_model(backbone_name, *args, **kwargs):
     embedder = backbones[backbone_name](*positional_args, **keyword_args)
     embedder.hidden_size = out_dimensions[backbone_name]
     return embedder
+
+def save_results_csv(results, model, task, output_file="all_results.csv"):
+    results = results.copy()
+    results["model"] = model
+    results["task"] = task
+
+    df = pd.DataFrame([results])
+
+    write_header = not os.path.exists(output_file)
+    df.to_csv(output_file, mode="a", header=write_header, index=False)
+
+

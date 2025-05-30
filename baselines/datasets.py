@@ -174,7 +174,7 @@ def representations_from_df(
         return embeddings
 
     else:
-
+        print(f"Just making sure that dataset is {dataset}")
         dataset_val = DNADataset(
             file_path=filename,
             embedder=embedder,

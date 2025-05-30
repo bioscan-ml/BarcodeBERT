@@ -18,7 +18,7 @@ print(os.getcwd())
 
 from barcodebert import utils
 from baselines.datasets import labels_from_df, representations_from_df
-from baselines.io import load_baseline_model
+from baselines.io import load_baseline_model, save_results_csv
 
 
 def run(config):
@@ -97,7 +97,7 @@ def run(config):
     if config.taxon.lower() == "bin":
         target_level = "bin_uri"
     else:
-        target_level = f"{config.taxon}_index"
+        target_level = f"{config.taxon}_name"
 
     timing_stats["preamble"] = time.time() - t_start
     t_start_embed = time.time()
@@ -115,17 +115,20 @@ def run(config):
 
     # Generate emebddings for the training, test and validation sets
     print("Generating embeddings for test set", flush=True)
-    X_test = representations_from_df(test_filename, embedder, batch_size=128)
+    X_test = representations_from_df(test_filename, embedder, batch_size=128, 
+                                     dataset=config.dataset_name)["data"]
     y_test = labels_from_df(test_filename, target_level, label_pipeline)
     print(X_test.shape, y_test.shape)
 
     print("Generating embeddings for validation set", flush=True)
-    X_val = representations_from_df(validation_filename, embedder, batch_size=128)
+    X_val = representations_from_df(validation_filename, embedder, batch_size=128, 
+                                    dataset=config.dataset_name)["data"]
     y_val = labels_from_df(validation_filename, target_level, label_pipeline)
     print(X_test.shape, y_test.shape)
 
     print("Generating embeddings for train set", flush=True)
-    X = representations_from_df(train_filename, embedder, batch_size=128)
+    X = representations_from_df(train_filename, embedder, batch_size=128, 
+                                dataset=config.dataset_name)["data"]
     y = labels_from_df(train_filename, target_level, label_pipeline)
     print(X.shape, y.shape)
 
@@ -226,8 +229,9 @@ def run(config):
 
     # Test the model after training
     test_results = evaluate(test_loader, clf, device, partition_name="Test", verbosity=1, is_distributed=False)
+    save_results_csv(test_results, config.backbone, "fine_tuning")
 
-    wandb.log({**{f"Eval/Test/{k}": v for k, v in test_results.items()}}, step=_batch_idx * num_epochs)
+    #wandb.log({**{f"Eval/Test/{k}": v for k, v in test_results.items()}}, step=_batch_idx * num_epochs)
 
 
 def evaluate(
@@ -304,7 +308,12 @@ def evaluate(
     results["f1-micro"] = 100.0 * sklearn.metrics.f1_score(y_true, y_pred, average="micro")
     results["f1-macro"] = 100.0 * sklearn.metrics.f1_score(y_true, y_pred, average="macro")
     results["f1-support"] = 100.0 * sklearn.metrics.f1_score(y_true, y_pred, average="weighted")
+    
     # Could expand to other metrics too
+    results["f1-support"] = 100.0 * sklearn.metrics.f1_score(y_true, y_pred, average="weighted")
+    results["precision-micro"] = 100.0 * sklearn.metrics.precision_score(y_true, y_pred, average="micro")
+    results["precision-macro"] = 100.0 * sklearn.metrics.precision_score(y_true, y_pred, average="macro")
+    results["precision-support"] = 100.0 * sklearn.metrics.precision_score(y_true, y_pred, average="weighted")
 
     if verbosity >= 1:
         print(f"\n{partition_name} evaluation results:")
