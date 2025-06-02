@@ -127,7 +127,7 @@ class DNADataset(Dataset):
         if self.target not in ["processid", "bin_uri", "dna_bin"]:
             label = torch.tensor(self.labels[idx], dtype=torch.int64)
         else:
-            label = self.labels[idx]
+           label = self.labels[idx] 
 
         return processed_barcode, label, att_mask
 
@@ -136,7 +136,8 @@ def representations_from_df(
     filename,
     embedder,
     batch_size=128,
-    save_embeddings=True,
+    save_embeddings=False,
+    load_embeddings=False,
     dataset="BIOSCAN-5M",
     embeddings_folder="embeddings/",
     target="species",
@@ -155,24 +156,32 @@ def representations_from_df(
     print(f"Calculating embeddings for {backbone}")
 
     # create a folder for a specific backbone within embeddings
-    backbone_folder = os.path.join(embeddings_path, backbone)
-    if not os.path.isdir(backbone_folder):
-        os.mkdir(backbone_folder)
 
-    # Check if the embeddings have been saved for that file
-    prefix = filename.split("/")[-1].split(".")[0]
-    out_fname = f"{os.path.join(backbone_folder, prefix)}.pickle"
-    print(out_fname)
 
-    if os.path.exists(out_fname):
-        print(f"We found the file {out_fname}. It seems that we have computed the embeddings ... \n")
-        print("Loading the embeddings from that file")
+    if save_embeddings or load_embeddings:
+        embeddings_path = f"{embeddings_folder}/{dataset}"
+        os.makedirs(embeddings_path, exist_ok=True)
+        
+        backbone_folder = os.path.join(embeddings_path, backbone)
+        if not os.path.isdir(backbone_folder):
+            os.mkdir(backbone_folder)
 
-        with open(out_fname, "rb") as handle:
-            embeddings = pickle.load(handle)
+    
+        prefix = filename.split("/")[-1].split(".")[0]
+        out_fname = f"{os.path.join(backbone_folder, prefix)}.pickle"
+        print(out_fname)
 
-        return embeddings
-
+    if load_embeddings:
+        if os.path.exists(out_fname):
+            print(f"We found the file {out_fname}. It seems that we have computed the embeddings ... \n")
+            print("Loading the embeddings from that file")
+    
+            with open(out_fname, "rb") as handle:
+                embeddings = pickle.load(handle)
+    
+            return embeddings
+        else:
+            raise FileNotFoundError(f"We could not find file {out_fname}")
     else:
         print(f"Just making sure that dataset is {dataset}")
         dataset_val = DNADataset(
@@ -252,12 +261,14 @@ def representations_from_df(
         # print(all_embeddings.shape)
         # print(all_ids.shape)
 
-        save_embeddings = {"data": all_embeddings, "ids": all_ids}
-
-        with open(out_fname, "wb") as handle:
-            pickle.dump(save_embeddings, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-        return save_embeddings
+        to_save_embeddings = {"data": all_embeddings, "ids": all_ids}
+        if save_embeddings:
+            print(f"Saving embeddings to {out_fname}")
+            with open(out_fname, "wb") as handle:
+                pickle.dump(to_save_embeddings, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        else:
+            print("save_embeddings flag set to False. skipping pickle saving")
+        return to_save_embeddings 
 
 
 def labels_from_df(filename, target_level, label_pipeline):
