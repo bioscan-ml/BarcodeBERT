@@ -110,7 +110,7 @@ def run(config):
 
     # Create a results dictionary
     results = {}
-    #for partition_name, X_part, y_part in [("Train", X, y), ("Unseen", X_unseen, y_unseen)]:
+    # for partition_name, X_part, y_part in [("Train", X, y), ("Unseen", X_unseen, y_unseen)]:
     for partition_name, X_part, y_part in [("Unseen", X_unseen, y_unseen)]:
         y_pred = clf.predict(X_part)
         res_part = {}
@@ -125,7 +125,7 @@ def run(config):
         res_part["precision-macro"] = 100.0 * sklearn.metrics.precision_score(y_part, y_pred, average="macro")
         res_part["precision-support"] = 100.0 * sklearn.metrics.precision_score(y_part, y_pred, average="weighted")
         results[partition_name] = res_part
-        
+
         print(f"\n{partition_name} evaluation results:")
         for k, v in res_part.items():
             if k == "count":

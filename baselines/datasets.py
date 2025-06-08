@@ -1,4 +1,3 @@
-
 """
 Datasets.
 """
@@ -127,7 +126,7 @@ class DNADataset(Dataset):
         if self.target not in ["processid", "bin_uri", "dna_bin"]:
             label = torch.tensor(self.labels[idx], dtype=torch.int64)
         else:
-           label = self.labels[idx] 
+            label = self.labels[idx]
 
         return processed_barcode, label, att_mask
 
@@ -157,16 +156,14 @@ def representations_from_df(
 
     # create a folder for a specific backbone within embeddings
 
-
     if save_embeddings or load_embeddings:
         embeddings_path = f"{embeddings_folder}/{dataset}"
         os.makedirs(embeddings_path, exist_ok=True)
-        
+
         backbone_folder = os.path.join(embeddings_path, backbone)
         if not os.path.isdir(backbone_folder):
             os.mkdir(backbone_folder)
 
-    
         prefix = filename.split("/")[-1].split(".")[0]
         out_fname = f"{os.path.join(backbone_folder, prefix)}.pickle"
         print(out_fname)
@@ -175,10 +172,10 @@ def representations_from_df(
         if os.path.exists(out_fname):
             print(f"We found the file {out_fname}. It seems that we have computed the embeddings ... \n")
             print("Loading the embeddings from that file")
-    
+
             with open(out_fname, "rb") as handle:
                 embeddings = pickle.load(handle)
-    
+
             return embeddings
         else:
             raise FileNotFoundError(f"We could not find file {out_fname}")
@@ -268,7 +265,7 @@ def representations_from_df(
                 pickle.dump(to_save_embeddings, handle, protocol=pickle.HIGHEST_PROTOCOL)
         else:
             print("save_embeddings flag set to False. skipping pickle saving")
-        return to_save_embeddings 
+        return to_save_embeddings
 
 
 def labels_from_df(filename, target_level, label_pipeline):

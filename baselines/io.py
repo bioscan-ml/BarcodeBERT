@@ -3,6 +3,7 @@ Input/output utilities.
 """
 
 import os
+
 import pandas as pd
 import torch
 
@@ -58,6 +59,7 @@ def load_baseline_model(backbone_name, *args, **kwargs):
     embedder.hidden_size = out_dimensions[backbone_name]
     return embedder
 
+
 def save_results_csv(results, model, task, output_file="all_results.csv"):
     results = results.copy()
     results["model"] = model
@@ -67,5 +69,3 @@ def save_results_csv(results, model, task, output_file="all_results.csv"):
 
     write_header = not os.path.exists(output_file)
     df.to_csv(output_file, mode="a", header=write_header, index=False)
-
-
