@@ -40,7 +40,13 @@ features = output.mean(1)
 pip install -e .
 ```
 
-1. Download the [data](https://vault.cs.uwaterloo.ca/s/x7gXQKnmRX3GAZm)
+1. Download the data from our Hugging Face Dataset [repository](https://huggingface.co/datasets/bioscan-ml/CanadianInvertebrates-ML)
+```shell
+cd data/
+python download_HF_CanInv.py
+```
+
+**Optional**: You can also download the first version of the [data](https://vault.cs.uwaterloo.ca/s/x7gXQKnmRX3GAZm)
 ```shell
 wget https://vault.cs.uwaterloo.ca/s/x7gXQKnmRX3GAZm/download -O data.zip
 unzip data.zip
@@ -49,20 +55,26 @@ rm -r new_data
 rm data.zip
 ```
 
-3. Pretrain BarcodeBERT
-
-```bash
-python barcodebert/pretraining.py --dataset=CANADA-1.5M --k_mer=4 --n_layers=4 --n_heads=4 --data_dir=data/ --checkpoint=model_checkpoints/CANADA-1.5M/4_4_4/checkpoint_pretraining.pt
-```
-
-4. Baseline model pipelines: The desired backbone can be selected using one of the following keywords:  
+4. DNA foundation model baselines: The desired backbone can be selected using one of the following keywords:  
 `BarcodeBERT, NT, Hyena_DNA, DNABERT, DNABERT-2, DNABERT-S`
 ```bash
 python baselines/knn_probing.py --backbone=<DESIRED-BACKBONE>  --data-dir=data/
 python baselines/linear_probing.py --backbone=<DESIRED-BACKBONE>  --data-dir=data/
 python baselines/finetuning.py --backbone=<DESIRED-BACKBONE> --data-dir=data/ --batch_size=32
+python baselines/zsc.py --backbone=<DESIRED-BACKBONE>  --data-dir=data/
 ```
-**Note**: HyenaDNA has to be downloaded using `git-lfs`. If that is not available to you, you may download the `/hyenadna-tiny-1k-seqlen/` checkpoint directly from [Hugging face](https://huggingface.co/LongSafari/hyenadna-tiny-1k-seqlen/tree/main). The keyword `BarcodeBERT` is also available as a baseline but this will download the publicly available model as presented in our workshop paper.
+**Note**: The DNABERT model has to be downloaded manually following the instructions in the paper's (repo)[https://github.com/jerryji1993/DNABERT] and placed in the `pretrained-models` folder.
+
+4.Supervised CNN
+
+```bash
+ python baselines/cnn/1D_CNN_supervised.py
+ python baselines/cnn/1D_CNN_KNN.py
+ python baselines/cnn/1D_CNN_Linear_probing.py
+ python baselines/cnn/1D_CNN_ZSC.py
+
+```
+**Note**: Train the CNN backbone with `1D_CNN_supervised.py` before evaluating it on any downtream task.
 
 5. BLAST
 ```shell
@@ -75,7 +87,17 @@ makeblastdb -in supervised_train.fas -title train -dbtype nucl -out train.fas
 blastn -query supervised_test.fas -db train.fas -out results_supervised_test.tsv -outfmt 6 -num_threads 16
 blastn -query unseen.fas -db train.fas -out results_unseen.tsv -outfmt 6 -num_threads 16
 ```
-
+### Pretrain BarcodeBERT
+To train the model you can run the following command. However,
+```bash
+python barcodebert/pretraining.py
+    --dataset=CANADA-1.5M \
+    --k_mer=4 \
+    --n_layers=4 \
+    --n_heads=4 \
+    --data_dir=data/ \
+    --checkpoint=model_checkpoints/CANADA-1.5M/4_4_4/checkpoint_pretraining.pt
+```
 
 ## Citation
 
