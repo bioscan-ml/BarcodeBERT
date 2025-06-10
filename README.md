@@ -63,7 +63,7 @@ python baselines/linear_probing.py --backbone=<DESIRED-BACKBONE>  --data-dir=dat
 python baselines/finetuning.py --backbone=<DESIRED-BACKBONE> --data-dir=data/ --batch_size=32
 python baselines/zsc.py --backbone=<DESIRED-BACKBONE>  --data-dir=data/
 ```
-**Note**: The DNABERT model has to be downloaded manually following the instructions in the paper's (repo)[https://github.com/jerryji1993/DNABERT] and placed in the `pretrained-models` folder.
+**Note**: The DNABERT model has to be downloaded manually following the instructions in the paper's [repo](https://github.com/jerryji1993/DNABERT) and placed in the `pretrained-models` folder.
 
 4.Supervised CNN
 
@@ -88,7 +88,7 @@ blastn -query supervised_test.fas -db train.fas -out results_supervised_test.tsv
 blastn -query unseen.fas -db train.fas -out results_unseen.tsv -outfmt 6 -num_threads 16
 ```
 ### Pretrain BarcodeBERT
-To train the model you can run the following command. However,
+To pretrain the model you can run the following command:
 ```bash
 python barcodebert/pretraining.py
     --dataset=CANADA-1.5M \
