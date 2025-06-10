@@ -35,10 +35,7 @@ def load_baseline_model(backbone_name, *args, **kwargs):
     # Keyword arguments as a dictionary
     checkpoints = {
         "NT": (["InstaDeepAI/nucleotide-transformer-v2-50m-multi-species"], kwargs),
-        "Hyena_DNA": (
-            ["pretrained_models/hyenadna-tiny-1k-seqlen"],
-            kwargs,
-        ),
+        "Hyena_DNA": (["LongSafari/hyenadna-tiny-1k-seqlen-d256-hf"], kwargs),
         "DNABERT-2": (["zhihan1996/DNABERT-2-117M"], kwargs),
         "DNABERT-S": (["zhihan1996/DNABERT-S"], kwargs),
         "DNABERT": (["pretrained_models/6-new-12w-0"], kwargs),
@@ -47,7 +44,7 @@ def load_baseline_model(backbone_name, *args, **kwargs):
 
     out_dimensions = {
         "NT": 512,
-        "Hyena_DNA": 128,
+        "Hyena_DNA": 256,
         "DNABERT-2": 768,
         "DNABERT": 768,
         "DNABERT-S": 768,

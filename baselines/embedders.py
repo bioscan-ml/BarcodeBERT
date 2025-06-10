@@ -31,6 +31,7 @@ from tqdm.auto import tqdm
 from transformers import (
     AutoModel,
     AutoModelForMaskedLM,
+    AutoModelForSequenceClassification,
     AutoTokenizer,
     BertConfig,
     BertModel,
@@ -41,7 +42,6 @@ from transformers import (
 from barcodebert.io import load_old_pretrained_model, load_pretrained_model
 
 from .models.dnabert2 import BertModel as DNABert2BertModel
-from .models.hyena_dna import CharacterTokenizer, HyenaDNAPreTrainedModel
 
 logging.set_verbosity_error()
 
@@ -391,7 +391,7 @@ class NucleotideTransformerEmbedder(BaseEmbedder):
 class HyenaDNAEmbedder(BaseEmbedder):
     """Embed using the HyenaDNA model https://arxiv.org/abs/2306.15794"""
 
-    def load_model(self, model_path="pretrained_models/hyenadna/hyenadna-tiny-1k-seqlen", **kwargs):
+    def load_model(self, model_checkpoint="LongSafari/hyenadna-tiny-1k-seqlen-hf", **kwargs):
         # '''Load the model from the checkpoint path
         # 'hyenadna-tiny-1k-seqlen'
         # 'hyenadna-small-32k-seqlen'
@@ -415,62 +415,16 @@ class HyenaDNAEmbedder(BaseEmbedder):
 
 
         """
-        checkpoint_path, model_name = os.path.split(model_path)
-        max_lengths = {
-            "hyenadna-tiny-1k-seqlen": 1024,
-            "hyenadna-small-32k-seqlen": 32768,
-            "hyenadna-medium-160k-seqlen": 160000,
-            "hyenadna-medium-450k-seqlen": 450000,
-            "hyenadna-large-1m-seqlen": 1_000_000,
-        }
-
-        self.max_length = max_lengths[model_name]  # auto selects
-
-        # all these settings are copied directly from huggingface.py
-
-        # data settings:
-        # use_padding = True
-        # rc_aug = False  # reverse complement augmentation
-        # add_eos = False  # add end of sentence token
-
-        # we need these for the decoder head, if using
-        use_head = False
-        n_classes = 2  # not used for embeddings only
-
-        # you can override with your own backbone config here if you want,
-        # otherwise we'll load the HF one in None
-        backbone_cfg = None
-
-        is_git_lfs_repo = os.path.exists(".git/hooks/pre-push")
-        # use the pretrained Huggingface wrapper instead
-        model = HyenaDNAPreTrainedModel.from_pretrained(
-            checkpoint_path,
-            model_name,
-            download=not os.path.exists(model_path),
-            config=backbone_cfg,
-            device=device,
-            use_head=use_head,
-            n_classes=n_classes,
+        model = AutoModelForSequenceClassification.from_pretrained(
+            model_checkpoint,
+            trust_remote_code=True,
         )
-
+        model = model.base_model
         model.to(device)
         self.model = model
 
-        # NOTE the git lfs download command will add this,
-        # but we actually dont use LFS for BEND itself.
-        if not is_git_lfs_repo:
-            try:
-                os.remove(".git/hooks/pre-push")
-            except FileNotFoundError:
-                pass
-
         # create tokenizer - NOTE this adds CLS and SEP tokens when add_special_tokens=False
-        self.tokenizer = CharacterTokenizer(
-            characters=["A", "C", "G", "T", "N"],  # add DNA characters, N is uncertain
-            model_max_length=self.max_length + 2,  # to account for special tokens, like EOS
-            add_special_tokens=False,  # we handle special tokens elsewhere
-            padding_side="left",  # since HyenaDNA is causal, we pad on the left
-        )
+        self.tokenizer = AutoTokenizer.from_pretrained(model_checkpoint, trust_remote_code=True)
 
     def embed(
         self,

@@ -78,11 +78,8 @@ class DNADataset(Dataset):
                 x,
                 return_tensors="pt",
                 return_attention_mask=True,
-                return_token_type_ids=False,
-                max_length=self.max_len,
                 padding="max_length",
-                truncation=True,
-                add_special_tokens=False,
+                add_special_tokens=True,
             )
 
             processed_barcode = encoding_info["input_ids"]
@@ -152,7 +149,7 @@ def representations_from_df(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    print(f"Calculating embeddings for {backbone}")
+    print(f"Calculating  {dataset} embeddings using {backbone}")
 
     # create a folder for a specific backbone within embeddings
 
@@ -180,7 +177,7 @@ def representations_from_df(
         else:
             raise FileNotFoundError(f"We could not find file {out_fname}")
     else:
-        print(f"Just making sure that dataset is {dataset}")
+
         dataset_val = DNADataset(
             file_path=filename,
             embedder=embedder,
@@ -217,7 +214,7 @@ def representations_from_df(
                     ][-1]
 
                 elif backbone == "Hyena_DNA":
-                    out = embedder.model(sequences)
+                    out = embedder.model(sequences)["last_hidden_state"]
 
                 elif backbone in ["DNABERT", "DNABERT-2", "DNABERT-S"]:
                     out = embedder.model(sequences, attention_mask=att_mask)[0]
@@ -243,10 +240,6 @@ def representations_from_df(
 
                 # Move embeddings back to CPU and convert to numpy array
                 embeddings = out.t().cpu().numpy()
-
-                # previous mean pooling
-                # out = out.mean(1)
-                # embeddings = out.cpu().numpy()
 
                 # Collect embeddings
                 embeddings_list.append(embeddings)

@@ -49,7 +49,7 @@ class ClassificationModel(nn.Module):
             out = self.base_model(sequences, attention_mask=mask, output_hidden_states=True)["hidden_states"][-1]
 
         elif self.backbone == "Hyena_DNA":
-            out = self.base_model(sequences)
+            out = self.base_model(sequences)["last_hidden_state"]
 
         elif self.backbone in ["DNABERT", "DNABERT-2", "DNABERT-S"]:
             out = self.base_model(sequences, attention_mask=mask)[0]
