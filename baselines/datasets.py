@@ -39,7 +39,7 @@ class DNADataset(Dataset):
                 target += "_name"
                 self.labels, self.label_set = pd.factorize(df[target], sort=True)
             else:
-                self.labels = df[target].to_list()
+                self.labels = df[target].fillna("").to_list()
                 self.label_set = set(self.labels)
 
             self.num_labels = len(self.label_set)
@@ -48,7 +48,7 @@ class DNADataset(Dataset):
             # self.ids = df["species_index"].to_list()  # ideally, this should be process id
             if target not in ["processid", "dna_bin"]:
                 target += "_index"
-            self.ids = df[target].to_list()
+            self.ids = df[target].fillna("").to_list()
             self.labels = self.ids
 
     def __len__(self):
