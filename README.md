@@ -55,7 +55,7 @@ rm -r new_data
 rm data.zip
 ```
 
-4. DNA foundation model baselines: The desired backbone can be selected using one of the following keywords:  
+2. DNA foundation model baselines: The desired backbone can be selected using one of the following keywords:  
 `BarcodeBERT, NT, Hyena_DNA, DNABERT, DNABERT-2, DNABERT-S`
 ```bash
 python baselines/knn_probing.py --backbone=<DESIRED-BACKBONE>  --data-dir=data/
@@ -65,7 +65,7 @@ python baselines/zsc.py --backbone=<DESIRED-BACKBONE>  --data-dir=data/
 ```
 **Note**: The DNABERT model has to be downloaded manually following the instructions in the paper's [repo](https://github.com/jerryji1993/DNABERT) and placed in the `pretrained-models` folder.
 
-4.Supervised CNN
+3. Supervised CNN
 
 ```bash
  python baselines/cnn/1D_CNN_supervised.py
@@ -76,7 +76,7 @@ python baselines/zsc.py --backbone=<DESIRED-BACKBONE>  --data-dir=data/
 ```
 **Note**: Train the CNN backbone with `1D_CNN_supervised.py` before evaluating it on any downtream task.
 
-5. BLAST
+4. BLAST
 ```shell
 cd data/
 python to_fasta.py --input_file=supervised_train.csv &&

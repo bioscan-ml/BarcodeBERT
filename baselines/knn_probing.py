@@ -110,7 +110,7 @@ def run(config):
 
     # Create a results dictionary
     results = {}
-    # for partition_name, X_part, y_part in [("Train", X, y), ("Unseen", X_unseen, y_unseen)]:
+
     for partition_name, X_part, y_part in [("Unseen", X_unseen, y_unseen)]:
         y_pred = clf.predict(X_part)
         res_part = {}
