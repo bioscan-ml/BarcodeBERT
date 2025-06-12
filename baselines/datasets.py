@@ -39,7 +39,7 @@ class DNADataset(Dataset):
                 target += "_name"
                 self.labels, self.label_set = pd.factorize(df[target], sort=True)
             else:
-                self.labels = df[target].to_list()
+                self.labels = df[target].fillna("").to_list()
                 self.label_set = set(self.labels)
 
             self.num_labels = len(self.label_set)
@@ -48,7 +48,7 @@ class DNADataset(Dataset):
             # self.ids = df["species_index"].to_list()  # ideally, this should be process id
             if target not in ["processid", "dna_bin"]:
                 target += "_index"
-            self.ids = df[target].to_list()
+            self.ids = df[target].fillna("").to_list()
             self.labels = self.ids
 
     def __len__(self):
@@ -78,11 +78,8 @@ class DNADataset(Dataset):
                 x,
                 return_tensors="pt",
                 return_attention_mask=True,
-                return_token_type_ids=False,
-                max_length=self.max_len,
                 padding="max_length",
-                truncation=True,
-                add_special_tokens=False,
+                add_special_tokens=True,
             )
 
             processed_barcode = encoding_info["input_ids"]
@@ -135,7 +132,8 @@ def representations_from_df(
     filename,
     embedder,
     batch_size=128,
-    save_embeddings=True,
+    save_embeddings=False,
+    load_embeddings=False,
     dataset="BIOSCAN-5M",
     embeddings_folder="embeddings/",
     target="species",
@@ -151,27 +149,33 @@ def representations_from_df(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    print(f"Calculating embeddings for {backbone}")
+    print(f"Calculating  {dataset} embeddings using {backbone}")
 
     # create a folder for a specific backbone within embeddings
-    backbone_folder = os.path.join(embeddings_path, backbone)
-    if not os.path.isdir(backbone_folder):
-        os.mkdir(backbone_folder)
 
-    # Check if the embeddings have been saved for that file
-    prefix = filename.split("/")[-1].split(".")[0]
-    out_fname = f"{os.path.join(backbone_folder, prefix)}.pickle"
-    print(out_fname)
+    if save_embeddings or load_embeddings:
+        embeddings_path = f"{embeddings_folder}/{dataset}"
+        os.makedirs(embeddings_path, exist_ok=True)
 
-    if os.path.exists(out_fname):
-        print(f"We found the file {out_fname}. It seems that we have computed the embeddings ... \n")
-        print("Loading the embeddings from that file")
+        backbone_folder = os.path.join(embeddings_path, backbone)
+        if not os.path.isdir(backbone_folder):
+            os.mkdir(backbone_folder)
 
-        with open(out_fname, "rb") as handle:
-            embeddings = pickle.load(handle)
+        prefix = filename.split("/")[-1].split(".")[0]
+        out_fname = f"{os.path.join(backbone_folder, prefix)}.pickle"
+        print(out_fname)
 
-        return embeddings
+    if load_embeddings:
+        if os.path.exists(out_fname):
+            print(f"We found the file {out_fname}. It seems that we have computed the embeddings ... \n")
+            print("Loading the embeddings from that file")
 
+            with open(out_fname, "rb") as handle:
+                embeddings = pickle.load(handle)
+
+            return embeddings
+        else:
+            raise FileNotFoundError(f"We could not find file {out_fname}")
     else:
 
         dataset_val = DNADataset(
@@ -210,7 +214,7 @@ def representations_from_df(
                     ][-1]
 
                 elif backbone == "Hyena_DNA":
-                    out = embedder.model(sequences)
+                    out = embedder.model(sequences)["last_hidden_state"]
 
                 elif backbone in ["DNABERT", "DNABERT-2", "DNABERT-S"]:
                     out = embedder.model(sequences, attention_mask=att_mask)[0]
@@ -237,10 +241,6 @@ def representations_from_df(
                 # Move embeddings back to CPU and convert to numpy array
                 embeddings = out.t().cpu().numpy()
 
-                # previous mean pooling
-                # out = out.mean(1)
-                # embeddings = out.cpu().numpy()
-
                 # Collect embeddings
                 embeddings_list.append(embeddings)
                 id_list.append(_id)
@@ -251,12 +251,14 @@ def representations_from_df(
         # print(all_embeddings.shape)
         # print(all_ids.shape)
 
-        save_embeddings = {"data": all_embeddings, "ids": all_ids}
-
-        with open(out_fname, "wb") as handle:
-            pickle.dump(save_embeddings, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-        return save_embeddings
+        to_save_embeddings = {"data": all_embeddings, "ids": all_ids}
+        if save_embeddings:
+            print(f"Saving embeddings to {out_fname}")
+            with open(out_fname, "wb") as handle:
+                pickle.dump(to_save_embeddings, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        else:
+            print("save_embeddings flag set to False. skipping pickle saving")
+        return to_save_embeddings
 
 
 def labels_from_df(filename, target_level, label_pipeline):

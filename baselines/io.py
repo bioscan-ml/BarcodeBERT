@@ -2,6 +2,9 @@
 Input/output utilities.
 """
 
+import os
+
+import pandas as pd
 import torch
 
 from baselines.embedders import (
@@ -32,19 +35,16 @@ def load_baseline_model(backbone_name, *args, **kwargs):
     # Keyword arguments as a dictionary
     checkpoints = {
         "NT": (["InstaDeepAI/nucleotide-transformer-v2-50m-multi-species"], kwargs),
-        "Hyena_DNA": (
-            ["/h/pmillana/projects/BIOSCAN_5M_DNA_experiments/pretrained_models/hyenadna-tiny-1k-seqlen"],
-            kwargs,
-        ),
+        "Hyena_DNA": (["LongSafari/hyenadna-tiny-1k-seqlen-d256-hf"], kwargs),
         "DNABERT-2": (["zhihan1996/DNABERT-2-117M"], kwargs),
         "DNABERT-S": (["zhihan1996/DNABERT-S"], kwargs),
-        "DNABERT": (["/scratch/ssd004/scratch/pmillana/checkpoints/dnabert/6-new-12w-0"], kwargs),
+        "DNABERT": (["pretrained_models/6-new-12w-0"], kwargs),
         "BarcodeBERT": ([], kwargs),
     }
 
     out_dimensions = {
         "NT": 512,
-        "Hyena_DNA": 128,
+        "Hyena_DNA": 256,
         "DNABERT-2": 768,
         "DNABERT": 768,
         "DNABERT-S": 768,
@@ -55,3 +55,14 @@ def load_baseline_model(backbone_name, *args, **kwargs):
     embedder = backbones[backbone_name](*positional_args, **keyword_args)
     embedder.hidden_size = out_dimensions[backbone_name]
     return embedder
+
+
+def save_results_csv(results, model, task, output_file="all_results.csv"):
+    results = results.copy()
+    results["model"] = model
+    results["task"] = task
+
+    df = pd.DataFrame([results])
+
+    write_header = not os.path.exists(output_file)
+    df.to_csv(output_file, mode="a", header=write_header, index=False)

@@ -16,7 +16,7 @@ print(os.getcwd())
 
 from barcodebert import utils
 from baselines.datasets import labels_from_df, representations_from_df
-from baselines.io import load_baseline_model
+from baselines.io import load_baseline_model, save_results_csv
 
 
 def run(config):
@@ -85,12 +85,12 @@ def run(config):
 
     # Generate emebddings for the training and test sets
     print("Generating embeddings for test set", flush=True)
-    X_unseen = representations_from_df(test_filename, embedder, batch_size=128, dataset=config.dataset_name)
+    X_unseen = representations_from_df(test_filename, embedder, batch_size=128, dataset=config.dataset_name)["data"]
     y_unseen = labels_from_df(test_filename, target_level, label_pipeline)
     print(X_unseen.shape, y_unseen.shape)
 
     print("Generating embeddings for train set", flush=True)
-    X = representations_from_df(train_filename, embedder, batch_size=128, dataset=config.dataset_name)
+    X = representations_from_df(train_filename, embedder, batch_size=128, dataset=config.dataset_name)["data"]
     y = labels_from_df(train_filename, target_level, label_pipeline)
     print(X.shape, y.shape)
 
@@ -110,7 +110,8 @@ def run(config):
 
     # Create a results dictionary
     results = {}
-    for partition_name, X_part, y_part in [("Train", X, y), ("Unseen", X_unseen, y_unseen)]:
+
+    for partition_name, X_part, y_part in [("Unseen", X_unseen, y_unseen)]:
         y_pred = clf.predict(X_part)
         res_part = {}
         res_part["count"] = len(y_part)
@@ -120,7 +121,11 @@ def run(config):
         res_part["f1-micro"] = 100.0 * sklearn.metrics.f1_score(y_part, y_pred, average="micro")
         res_part["f1-macro"] = 100.0 * sklearn.metrics.f1_score(y_part, y_pred, average="macro")
         res_part["f1-support"] = 100.0 * sklearn.metrics.f1_score(y_part, y_pred, average="weighted")
+        res_part["precision-micro"] = 100.0 * sklearn.metrics.precision_score(y_part, y_pred, average="micro")
+        res_part["precision-macro"] = 100.0 * sklearn.metrics.precision_score(y_part, y_pred, average="macro")
+        res_part["precision-support"] = 100.0 * sklearn.metrics.precision_score(y_part, y_pred, average="weighted")
         results[partition_name] = res_part
+
         print(f"\n{partition_name} evaluation results:")
         for k, v in res_part.items():
             if k == "count":
@@ -129,6 +134,7 @@ def run(config):
                 print(f"  {k + ' ':.<24s} {v:6.2f} %")
     acc = results["Unseen"]["accuracy"]
     timing_stats["test"] = time.time() - t_start_test
+    save_results_csv(results["Unseen"], config.backbone, "kNN")
 
     # Save results -------------------------------------------------------------
     dt = time.time() - t_start

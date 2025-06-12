@@ -13,12 +13,9 @@ import torch.optim
 from torch.utils.data import DataLoader
 
 sys.path.append(".")
-print(sys.path)
-print(os.getcwd())
-
 from barcodebert import utils
 from baselines.datasets import labels_from_df, representations_from_df
-from baselines.io import load_baseline_model
+from baselines.io import load_baseline_model, save_results_csv
 
 
 def run(config):
@@ -59,7 +56,7 @@ def run(config):
 
     # If we're using wandb, initialize the run, or resume it if the job was preempted.
     if config.log_wandb:
-        wandb_run_name = config.run_name
+        wandb_run_name = f"lp_{config.backbone}_{config.dataset_name}"
         EXCLUDED_WANDB_CONFIG_KEYS = [
             "log_wandb",
             "wandb_entity",
@@ -97,7 +94,7 @@ def run(config):
     if config.taxon.lower() == "bin":
         target_level = "bin_uri"
     else:
-        target_level = f"{config.taxon}_index"
+        target_level = f"{config.taxon}_name"
 
     timing_stats["preamble"] = time.time() - t_start
     t_start_embed = time.time()
@@ -115,17 +112,17 @@ def run(config):
 
     # Generate emebddings for the training, test and validation sets
     print("Generating embeddings for test set", flush=True)
-    X_test = representations_from_df(test_filename, embedder, batch_size=128)
+    X_test = representations_from_df(test_filename, embedder, batch_size=128, dataset=config.dataset_name)["data"]
     y_test = labels_from_df(test_filename, target_level, label_pipeline)
     print(X_test.shape, y_test.shape)
 
     print("Generating embeddings for validation set", flush=True)
-    X_val = representations_from_df(validation_filename, embedder, batch_size=128)
+    X_val = representations_from_df(validation_filename, embedder, batch_size=128, dataset=config.dataset_name)["data"]
     y_val = labels_from_df(validation_filename, target_level, label_pipeline)
     print(X_test.shape, y_test.shape)
 
     print("Generating embeddings for train set", flush=True)
-    X = representations_from_df(train_filename, embedder, batch_size=128)
+    X = representations_from_df(train_filename, embedder, batch_size=128, dataset=config.dataset_name)["data"]
     y = labels_from_df(train_filename, target_level, label_pipeline)
     print(X.shape, y.shape)
 
@@ -150,7 +147,7 @@ def run(config):
     print("Labels shapes", y.shape, y_val.shape, y_test.shape)
 
     train = torch.utils.data.TensorDataset(X, y)
-    train_loader = DataLoader(train, batch_size=64, shuffle=True)
+    train_loader = DataLoader(train, batch_size=1024, shuffle=True)
 
     val = torch.utils.data.TensorDataset(X_val, y_val)
     val_loader = DataLoader(val, batch_size=1024, shuffle=False, drop_last=False)
@@ -170,7 +167,7 @@ def run(config):
 
     # TRAIN ===================================================================
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(clf.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-5)
+    optimizer = torch.optim.SGD(clf.parameters(), lr=1, momentum=0.95, weight_decay=1e-9)
 
     clf.to(device)
     timing_stats = {}
@@ -226,8 +223,10 @@ def run(config):
 
     # Test the model after training
     test_results = evaluate(test_loader, clf, device, partition_name="Test", verbosity=1, is_distributed=False)
+    save_results_csv(test_results, config.backbone, "fine_tuning")
 
-    wandb.log({**{f"Eval/Test/{k}": v for k, v in test_results.items()}}, step=_batch_idx * num_epochs)
+    if config.log_wandb:
+        wandb.log({**{f"Eval/Test/{k}": v for k, v in test_results.items()}}, step=_batch_idx * num_epochs)
 
 
 def evaluate(
@@ -303,8 +302,18 @@ def evaluate(
     results["accuracy-balanced"] = 100.0 * sklearn.metrics.balanced_accuracy_score(y_true, y_pred)
     results["f1-micro"] = 100.0 * sklearn.metrics.f1_score(y_true, y_pred, average="micro")
     results["f1-macro"] = 100.0 * sklearn.metrics.f1_score(y_true, y_pred, average="macro")
-    results["f1-support"] = 100.0 * sklearn.metrics.f1_score(y_true, y_pred, average="weighted")
+    results["f1-support"] = 100.0 * sklearn.metrics.f1_score(y_true, y_pred, average="weighted", zero_division=np.nan)
+
     # Could expand to other metrics too
+    results["precision-micro"] = 100.0 * sklearn.metrics.precision_score(
+        y_true, y_pred, average="micro", zero_division=np.nan
+    )
+    results["precision-macro"] = 100.0 * sklearn.metrics.precision_score(
+        y_true, y_pred, average="macro", zero_division=np.nan
+    )
+    results["precision-support"] = 100.0 * sklearn.metrics.precision_score(
+        y_true, y_pred, average="weighted", zero_division=np.nan
+    )
 
     if verbosity >= 1:
         print(f"\n{partition_name} evaluation results:")
