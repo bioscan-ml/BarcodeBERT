@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/602726133.svg)](https://doi.org/10.5281/zenodo.15650124)
+
 # BarcodeBERT
 
 A pre-trained transformer model for inference on insect DNA barcoding data.  
