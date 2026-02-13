@@ -37,9 +37,20 @@ features = output.mean(1)
 
 ### Reproducing the results from the paper
 
-0. Clone this repository and install the required libraries by running
+0. Clone this repository and install the required libraries.
+The instructions below assume a working `pip`- or
+[`uv`](https://docs.astral.sh/uv/)-managed Python environment.
+Requires **Python 3.11 or 3.12**
+(`torchtext`, a deprecated dependency,
+does not provide wheels for 3.13+).
+See [`pyproject.toml`](pyproject.toml) for the full list of
+pinned dependencies.
 ```shell
 pip install -e .
+```
+Or, using `uv`:
+```shell
+uv sync
 ```
 
 1. Download the data from our Hugging Face Dataset [repository](https://huggingface.co/datasets/bioscan-ml/CanadianInvertebrates-ML)
