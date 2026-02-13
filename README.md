@@ -112,6 +112,12 @@ python barcodebert/pretraining.py
     --checkpoint=model_checkpoints/CANADA-1.5M/4_4_4/checkpoint_pretraining.pt
 ```
 
+## Contributing
+
+If you'd like to contribute to BarcodeBERT,
+please read our [Contributing Guidelines](CONTRIBUTING.md)
+for information about setup, code style, and submission process.
+
 ## Citation
 
 If you find BarcodeBERT useful in your research please consider citing:
