@@ -1,5 +1,8 @@
 from datasets import load_dataset
 
+# trust_remote_code=True is required because the HF dataset uses a custom
+# loading script. This requires datasets<3 (v3+ removed script support).
+# See: https://github.com/bioscan-ml/BarcodeBERT/issues/21
 ds = load_dataset("bioscan-ml/CanadianInvertebrates-ML", trust_remote_code=True)
 print("Formatting the data into CSV files ...")
 
