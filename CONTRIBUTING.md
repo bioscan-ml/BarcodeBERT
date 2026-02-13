@@ -12,10 +12,19 @@ This document covers the standards and process for contributing.
 
 ### Local setup
 
+Clone the repository using HTTPS or SSH:
+
+```bash
+# HTTPS
+git clone https://github.com/bioscan-ml/BarcodeBERT.git
+
+# SSH
+git clone git@github.com:bioscan-ml/BarcodeBERT.git
+```
+
 Using `pip`, activate a virtual environment first, then:
 
 ```bash
-git clone git@github.com:bioscan-ml/BarcodeBERT.git
 cd BarcodeBERT
 pip install -e .
 ```
@@ -23,7 +32,6 @@ pip install -e .
 Or, using `uv` (creates and manages the environment automatically):
 
 ```bash
-git clone git@github.com:bioscan-ml/BarcodeBERT.git
 cd BarcodeBERT
 uv sync
 ```
