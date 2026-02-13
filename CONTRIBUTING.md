@@ -126,7 +126,7 @@ Version constraints in `pyproject.toml` exist
 for specific compatibility reasons:
 
 - `datasets>=2.16,<4`:
-  The HuggingFace dataset uses a custom loading script
+  The Hugging Face dataset uses a custom loading script
   removed in `datasets` v4+.
 - `numba>=0.59`:
   Prevents the `uv` resolver from backtracking
