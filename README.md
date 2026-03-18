@@ -136,7 +136,7 @@ If you find BarcodeBERT useful in your research please consider citing:
   journal={Bioinformatics Advances},
   pages={vbag054},
   year={2026},
-  month={02},
+  month = feb,
   doi={10.1093/bioadv/vbag054},
 }
 ```
