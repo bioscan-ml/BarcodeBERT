@@ -127,7 +127,7 @@ for information about setup, code style, and submission process.
 If you find BarcodeBERT useful in your research please consider citing:
 
 ```bibtex
-@article{10.1093/bioadv/vbag054,
+@article{MillanArias2026BarcodeBERT,
   author={Millan Arias, Pablo and Sadjadi, Niousha and Safari, Monireh
     and Gong, ZeMing and Wang, Austin T and Haurum, Joakim Bruslund
     and Zarubiieva, Iuliia and Steinke, Dirk and Kari, Lila
