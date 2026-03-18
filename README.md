@@ -7,7 +7,11 @@ A pre-trained transformer model for inference on insect DNA barcoding data.
   <img src ="Figures/Arch.jpg" alt="drawing" width="500"/>
 </p>
 
-Check out our [paper](https://arxiv.org/abs/2311.02401)
+Read our paper in
+[*Bioinformatics Advances*](https://doi.org/10.1093/bioadv/vbag054)
+(Millan Arias et al., 2026).
+If you use BarcodeBERT in your research,
+please consider [citing us](#citation).
 
 ### Using the model
 
@@ -123,26 +127,16 @@ for information about setup, code style, and submission process.
 If you find BarcodeBERT useful in your research please consider citing:
 
 ```bibtex
-@article{arias2023barcodebert,
-  title={{BarcodeBERT}: Transformers for Biodiversity Analysis},
-  author={Pablo Millan Arias
-    and Niousha Sadjadi
-    and Monireh Safari
-    and ZeMing Gong
-    and Austin T. Wang
-    and Joakim Bruslund Haurum
-    and Iuliia Zarubiieva
-    and Dirk Steinke
-    and Lila Kari
-    and Angel X. Chang
-    and Scott C. Lowe
-    and Graham W. Taylor
-  },
-  journal={arXiv preprint arXiv:2311.02401},
-  year={2023},
-  eprint={2311.02401},
-  archivePrefix={arXiv},
-  primaryClass={cs.LG},
-  doi={10.48550/arxiv.2311.02401},
+@article{10.1093/bioadv/vbag054,
+  author={Millan Arias, Pablo and Sadjadi, Niousha and Safari, Monireh
+    and Gong, ZeMing and Wang, Austin T and Haurum, Joakim Bruslund
+    and Zarubiieva, Iuliia and Steinke, Dirk and Kari, Lila
+    and Chang, Angel X and Lowe, Scott C and Taylor, Graham W},
+  title={{BarcodeBERT}: Transformers for Biodiversity Analyses},
+  journal={Bioinformatics Advances},
+  pages={vbag054},
+  year={2026},
+  month={02},
+  doi={10.1093/bioadv/vbag054},
 }
 ```
