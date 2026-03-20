@@ -7,7 +7,8 @@ A pre-trained transformer model for inference on insect DNA barcoding data.
   <img src ="Figures/Arch.jpg" alt="drawing" width="500"/>
 </p>
 
-Check out our [paper](https://doi.org/10.1093/bioadv/vbag054)
+Read our paper in [*Bioinformatics Advances*](https://doi.org/10.1093/bioadv/vbag054) (Millan Arias et al., 2026).
+If you use BarcodeBERT in your research, please consider [citing us](#citation).
 
 ### Using the model
 
